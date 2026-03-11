@@ -1,0 +1,46 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# LlamaIndex core + Gemini integrations
+# Permite a pip resolver el constraint en lugar de fijar la version exacta
+llama-index-core>=0.12.0
+llama-index-llms-google-genai>=0.2.0
+llama-index-embeddings-google-genai>=0.2.0
+llama-index-vector-stores-qdrant>=0.4.0
+llama-index-readers-file>=0.2.0
+
+# Qdrant client
+qdrant-client>=1.11.0
+
+# Document processing
+pypdf>=4.3.0
+pillow>=10.4.0
+pymupdf>=1.24.0
+
+# Utils
+python-dotenv>=1.0.1
+pydantic>=2.9.0
+
+# Configuración centralizada y validada
+pydantic-settings>=2.3.0
+
+# Logging estructurado JSON
+loguru>=0.7.0
+
+# Seguridad y validación (problemas críticos)
+filetype>=1.2.0        # Validación de tipo real por magic bytes (anti MIME spoofing)
+slowapi>=0.1.9         # Rate limiting para FastAPI
+
+# UX — Streaming SSE
+sse-starlette>=1.6.5   # Server-Sent Events para streaming de respuestas
+
+# Calidad RAG (mejora 03)
+fastembed>=0.2.0                # Sparse vectors BM25 para búsqueda híbrida dense+sparse
+sentence-transformers>=2.7.0    # Cross-encoder local para re-ranking de resultados
+ragas>=0.1.0                    # Evaluación objetiva del pipeline RAG (faithfulness, recall, etc.)
+
+# Tests (mejora 04)
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0

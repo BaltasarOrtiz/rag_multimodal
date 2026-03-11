@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Env — nunca versionar archivos con secretos reales
+.env
+.env.*
+!.env.example
+
+# Data & Storage (no versionar documentos ni векторы)
+backend/data/*
+!backend/data/.gitkeep
+backend/storage/*
+!backend/storage/.gitkeep
+qdrant_storage/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

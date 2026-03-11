@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__MCP_DOCKER__read_file",
+      "mcp__engram__mem_session_start",
+      "mcp__engram__mem_save",
+      "mcp__engram__mem_session_summary"
+    ]
+  }
+}

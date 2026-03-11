@@ -1,0 +1,17 @@
+# docker-compose.override.yml — Configuración de DESARROLLO (no versionado)
+# Este archivo sobreescribe docker-compose.yml automáticamente con `docker compose up`.
+# Para producción, usar solo docker-compose.yml.
+services:
+  api:
+    volumes:
+      - ./backend:/app        # Hot reload: cambios de código se reflejan en vivo
+      - ./backend/data:/app/data
+      - ./backend/storage:/app/storage
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    environment:
+      - QDRANT_HOST=qdrant
+
+  # El frontend se construye y sirve con nginx también en dev.
+  # Si prefieres usar Vite local (npm run dev), borra este arquivo .override.yml
+  # o comenta el bloque frontend:
+  # frontend: {}
