@@ -1,7 +1,19 @@
 ﻿<script setup lang="ts">
-import { ref, nextTick, watch } from 'vue'
-import { marked } from 'marked'
+import { ref, nextTick, watch, computed } from 'vue'
+import hljs from 'highlight.js'
+import { marked, type Tokens } from 'marked'
 import DOMPurify from 'dompurify'
+
+// Configurar highlight.js via marked.use() — compatible con marked 5+
+marked.use({
+  renderer: {
+    code(token: Tokens.Code): string {
+      const language = (token.lang && hljs.getLanguage(token.lang)) ? token.lang : 'plaintext'
+      const highlighted = hljs.highlight(token.text, { language }).value
+      return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`
+    }
+  }
+})
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import Slider from 'primevue/slider'
@@ -24,8 +36,19 @@ const filterOptions = [
 ]
 
 const inputText = ref('')
+const CHAR_LIMIT = 4000
+const charCount = computed(() => inputText.value.length)
 const scrollEl = ref<HTMLElement | null>(null)
 const copyToast = ref<string | null>(null)
+
+const searchQuery = ref('')
+const showSearch = ref(false)
+
+const filteredMessages = computed(() => {
+  if (!searchQuery.value.trim()) return messages.value
+  const q = searchQuery.value.toLowerCase()
+  return messages.value.filter(m => m.content.toLowerCase().includes(q))
+})
 
 /** Icono PrimeVue según el código de error */
 function errorIcon(code: RagErrorCode | undefined): string {
@@ -123,6 +146,31 @@ async function handleNewChat() {
         <span class="header-title">Chat RAG</span>
         <span v-if="messages.length" class="msg-count">{{ messages.length }} mensajes</span>
       </div>
+
+      <!-- Search toggle + input -->
+      <Button
+        v-if="messages.length"
+        icon="pi pi-search"
+        text
+        size="small"
+        class="action-btn"
+        :class="{ 'search-active': showSearch }"
+        title="Buscar en historial"
+        @click="showSearch = !showSearch; if (!showSearch) searchQuery = ''"
+      />
+      <Transition name="search">
+        <input
+          v-if="showSearch"
+          v-model="searchQuery"
+          placeholder="Buscar en la conversación..."
+          class="search-input"
+          autofocus
+        />
+      </Transition>
+      <span v-if="searchQuery" class="search-results-count">
+        {{ filteredMessages.length }} resultado{{ filteredMessages.length !== 1 ? 's' : '' }}
+      </span>
+
       <div class="header-right">
         <div class="topk-control">
           <span class="topk-label">Top-K: <strong>{{ topK }}</strong></span>
@@ -184,7 +232,7 @@ async function handleNewChat() {
         </div>
 
         <!-- Message bubbles -->
-        <template v-for="msg in messages" :key="msg.id">
+        <template v-for="msg in filteredMessages" :key="msg.id">
           <!-- User message -->
           <div v-if="msg.role === 'user'" class="message-row user-row">
             <div class="bubble user-bubble">
@@ -296,6 +344,9 @@ async function handleNewChat() {
       <div class="input-footer">
         <span class="hint">
           <i class="pi pi-info-circle" /> Ctrl + Enter
+        </span>
+        <span class="char-counter" :class="{ 'char-warn': charCount > CHAR_LIMIT * 0.85, 'char-limit': charCount >= CHAR_LIMIT }">
+          {{ charCount }} / {{ CHAR_LIMIT }}
         </span>
         <Button
           label="Enviar"
@@ -876,5 +927,55 @@ async function handleNewChat() {
 
 .animate-in {
   animation: fadeUp 0.25s ease;
+}
+
+/* Char counter (Cambio 5) */
+.char-counter {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+.char-warn  { color: #fbbf24; }
+.char-limit { color: #f87171; font-weight: 600; }
+
+/* highlight.js override (Cambio 6) */
+.markdown-body :deep(pre code.hljs) {
+  background: transparent;
+  padding: 0;
+  font-size: 0.85em;
+}
+
+/* Search (Cambio 7) */
+.search-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  padding: 0.3rem 0.625rem;
+  outline: none;
+  width: 180px;
+  transition: border-color 0.2s, width 0.25s;
+}
+.search-input:focus {
+  border-color: var(--cyan-500);
+  width: 220px;
+}
+.search-active { color: var(--cyan-400) !important; }
+.search-results-count {
+  font-size: 0.68rem;
+  color: var(--cyan-400);
+  background: rgba(34,211,238,0.08);
+  border: 1px solid rgba(34,211,238,0.2);
+  border-radius: 9999px;
+  padding: 0.1rem 0.45rem;
+  white-space: nowrap;
+}
+.search-enter-active, .search-leave-active {
+  transition: opacity 0.2s, width 0.25s;
+}
+.search-enter-from, .search-leave-to {
+  opacity: 0;
+  width: 0;
 }
 </style>

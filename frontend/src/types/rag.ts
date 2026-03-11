@@ -93,6 +93,8 @@ export interface IngestStatus {
   started_at: string | null
   finished_at: string | null
   collection?: string
+  total_docs?: number
+  processed_docs?: number
 }
 
 // ── Colecciones ──────────────────────────────────────────────

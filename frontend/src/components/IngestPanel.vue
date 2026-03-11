@@ -3,16 +3,18 @@ import Button from 'primevue/button'
 import ProgressBar from 'primevue/progressbar'
 import Message from 'primevue/message'
 import { useToast } from 'primevue/usetoast'
-import { useIngest, useHealth } from '@/composables/useRag'
+import { useIngest, useIngestStatus, useHealth } from '@/composables/useRag'
 import { useCollectionStore } from '@/stores/useCollectionStore'
 
 const toast = useToast()
 const { loading, message, error, ingest } = useIngest()
 const { refresh: refreshHealth } = useHealth()
 const collectionStore = useCollectionStore()
+const { ingestStatus, startPolling } = useIngestStatus()
 
 async function handleIngest(force = false) {
   await ingest(force)
+  startPolling()
   if (message.value) {
     toast.add({ severity: 'info', summary: 'Ingestión', detail: message.value, life: 5000 })
     // Refresh health and collection stats after a short delay
@@ -58,6 +60,15 @@ async function handleIngest(force = false) {
     </div>
 
     <ProgressBar v-if="loading" mode="indeterminate" class="progress-bar" />
+
+    <ProgressBar
+      v-if="ingestStatus.status === 'running' && ingestStatus.total_docs"
+      :value="Math.round((ingestStatus.processed_docs ?? 0) / (ingestStatus.total_docs ?? 1) * 100)"
+      class="ingest-progress"
+    />
+    <span v-if="ingestStatus.total_docs" class="progress-label">
+      {{ ingestStatus.processed_docs ?? 0 }} / {{ ingestStatus.total_docs }} documentos
+    </span>
 
     <Message v-if="message && !loading" severity="info" :closable="false" class="msg">
       <i class="pi pi-info-circle" /> {{ message }}
@@ -178,5 +189,21 @@ async function handleIngest(force = false) {
   color: var(--violet-400);
   font-size: 0.75rem;
   width: 14px;
+}
+
+.ingest-progress {
+  height: 6px !important;
+  border-radius: 9999px !important;
+}
+
+:deep(.ingest-progress .p-progressbar-value) {
+  background: var(--cyan-400) !important;
+  border-radius: 9999px !important;
+}
+
+.progress-label {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  text-align: right;
 }
 </style>

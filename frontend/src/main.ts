@@ -6,6 +6,7 @@ import ToastService from 'primevue/toastservice'
 import ConfirmationService from 'primevue/confirmationservice'
 import Tooltip from 'primevue/tooltip'
 import 'primeicons/primeicons.css'
+import 'highlight.js/styles/github-dark.css'
 
 import App from './App.vue'
 import router from './router'

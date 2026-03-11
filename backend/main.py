@@ -48,6 +48,8 @@ def _default_ingest_status(collection: str) -> dict:
         "started_at": None,
         "finished_at": None,
         "collection": collection,
+        "total_docs": 0,
+        "processed_docs": 0,
     }
 
 # ── Rate Limiter ─────────────────────────────────────────────
@@ -235,12 +237,20 @@ async def ingest(
             detail=f"Ya hay una ingestión en curso para '{col}'. Espera a que termine."
         )
 
+    _data_dir = get_collection_data_dir(col)
+    _allowed_doc_exts = {".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md"}
+    _total = sum(
+        1 for f in _data_dir.iterdir()
+        if f.is_file() and f.suffix.lower() in _allowed_doc_exts
+    ) if _data_dir.exists() else 0
     INGEST_STATUS_BY_COLLECTION[col] = {
         "status": "running",
         "message": "Procesando documentos...",
         "started_at": datetime.now(timezone.utc).isoformat(),
         "finished_at": None,
         "collection": col,
+        "total_docs": _total,
+        "processed_docs": 0,
     }
 
     def _run_ingest(collection_name: str):
@@ -254,6 +264,7 @@ async def ingest(
                 "status": "done",
                 "message": "Ingestión completada exitosamente.",
                 "finished_at": datetime.now(timezone.utc).isoformat(),
+                "processed_docs": INGEST_STATUS_BY_COLLECTION[collection_name].get("total_docs", 0),
             })
             logger.info("Ingestión completada", collection=collection_name)
         except Exception as e:

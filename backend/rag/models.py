@@ -97,3 +97,5 @@ class IngestStatus(BaseModel):
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
     collection: Optional[str] = None
+    total_docs: Optional[int] = 0
+    processed_docs: Optional[int] = 0
