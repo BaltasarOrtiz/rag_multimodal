@@ -34,6 +34,10 @@ cd backend && pytest tests/ -v
 
 # Tests frontend
 cd frontend && npm run test
+
+# Rebuild limpio tras cambios en Dockerfile o requirements
+docker compose build --no-cache
+docker compose up -d
 ```
 
 ---
@@ -43,11 +47,16 @@ cd frontend && npm run test
 ```
 rag_multimodal/
 ├── AGENTS.md
-├── .env
-├── .env.example
+├── .env                          # No commitear — ignorado en .gitignore
+├── .env.example                  # Plantilla pública con valores de ejemplo
+├── .gitignore
+├── .github/
+│   └── copilot-instructions.md  # Mismo contenido que AGENTS.md
+├── .claude/
+│   └── rules/project.md         # Mismo contenido que AGENTS.md
 ├── docker-compose.yml
 ├── docker-compose.override.yml
-├── qdrant_storage/
+├── qdrant_storage/               # Volumen persistente — NO borrar
 ├── backend/
 └── frontend/
 ```
@@ -66,6 +75,7 @@ backend/
 ├── eval_pipeline.py      # CLI para evaluación RAGAS (no tocar en features)
 ├── requirements.txt
 ├── Dockerfile
+├── .dockerignore
 │
 ├── rag/
 │   ├── __init__.py
@@ -85,7 +95,7 @@ backend/
 
 **Módulos y responsabilidades:**
 
-- `main.py` solo contiene: instancia FastAPI, lifespan, middleware, inclusion
+- `main.py` solo contiene: instancia FastAPI, lifespan, middleware, inclusión
   de routers y endpoints simples. **Nunca** lógica de negocio en `main.py`.
 - `rag/ingest.py` es el único lugar donde se instancia `SimpleDirectoryReader`,
   `SentenceSplitter`, `GoogleGenAIEmbedding` y se escribe en Qdrant.
@@ -113,10 +123,11 @@ backend/
 - Validar tipo de archivo con `filetype` (magic bytes), nunca solo por extensión.
 - Proteger `DELETE /documents/{filename}` contra path traversal usando
   `pathlib.Path` y verificando que el archivo esté dentro de `./data/`.
-- Si `settings.API_KEY` está definida, exigir `Authorization: Bearer <token>`.
-  Aplicar el `Depends(verify_api_key)` a todos los endpoints que modifican estado.
+- Si `settings.api_key` está definida, exigir `Authorization: Bearer <token>`.
+  Aplicar `Depends(verify_api_key)` a todos los endpoints que modifican estado.
 - Rate limiting con `slowapi` según la tabla de endpoints definida más abajo.
 - CORS restringido: nunca usar `allow_origins=["*"]` en producción.
+  Usar siempre `settings.cors_origins` (lista explícita desde `.env`).
 
 **Patrones de código obligatorios:**
 
@@ -189,6 +200,7 @@ frontend/
 ├── tsconfig.json
 ├── nginx.conf              # SPA fallback + proxy /api/ → backend:8000
 ├── Dockerfile
+├── .dockerignore
 │
 └── src/
     ├── main.ts             # Bootstrap: createApp + PrimeVue + Router + Pinia
@@ -306,13 +318,14 @@ export function useDocuments() {
 
 **SSE Streaming:**
 
-- El streaming SSE en `QueryPanel.vue` se maneja con `EventSource` nativo o
-  `fetch` con `ReadableStream`. **Nunca** polling para simular streaming.
+- El streaming SSE en `QueryPanel.vue` se maneja con `fetch` + `ReadableStream`.
+  **Nunca** polling para simular streaming. **Nunca** `EventSource` nativo para
+  endpoints POST (EventSource solo soporta GET).
 - Los tokens se acumulan en un `ref<string>` y se renderizan con `marked` +
   `DOMPurify` para prevenir XSS.
 
 ```typescript
-// ✅ Patrón SSE con fetch streaming
+// ✅ Patrón correcto: fetch + ReadableStream para SSE con POST
 const streamChat = async (message: string) => {
   const response = await fetch('/api/chat/stream', {
     method: 'POST',
@@ -327,6 +340,9 @@ const streamChat = async (message: string) => {
     currentResponse.value += decoder.decode(value)
   }
 }
+
+// ❌ Prohibido: EventSource para endpoints POST
+const es = new EventSource('/api/chat/stream')  // ❌ solo soporta GET
 ```
 
 **Seguridad en frontend:**
@@ -340,43 +356,161 @@ const streamChat = async (message: string) => {
 
 ## DOCKER — Reglas
 
-**Tres servicios en `docker-compose.yml`:**
+### Servicios en `docker-compose.yml`
 
 ```yaml
 # Orden de dependencias: qdrant → api → frontend
 services:
-  qdrant:      # puerto 6333 (REST) + 6334 (gRPC), datos en ./qdrant_storage/
-  api:         # puerto 8000, depende de qdrant, lee .env, monta ./backend/data/
-  frontend:    # puerto 80, Nginx sirve dist/ + proxy /api/ → api:8000
+  qdrant:      # imagen pineada (ej: qdrant/qdrant:v1.13.2), datos en ./qdrant_storage/
+  api:         # puerto 8000, depende de qdrant con healthcheck, monta ./backend/data/
+  frontend:    # puerto 80, depende de api con healthcheck, nginx sirve dist/
 ```
 
-**Nginx (`frontend/nginx.conf`) debe tener:**
+### Reglas de versiones de imágenes
+
+- **Nunca usar `latest`** como tag. Siempre pinear versión exacta:
+  - ✅ `qdrant/qdrant:v1.13.2`
+  - ✅ `node:22-alpine3.21`
+  - ✅ `nginx:1.27-alpine`
+  - ✅ `python:3.11-slim`
+  - ❌ `qdrant/qdrant:latest`
+
+### Seguridad de imágenes Alpine — regla obligatoria
+
+Todas las imágenes base con Alpine **deben incluir** `apk update && apk upgrade --no-cache`
+como primer `RUN` inmediatamente después del `FROM`. Esto parchea los CVEs de
+paquetes del sistema operativo (busybox, musl-libc, libssl, etc.) al momento
+del build sin necesidad de cambiar la imagen base.
+
+```dockerfile
+# ✅ Correcto — siempre después de cada FROM con Alpine
+FROM node:22-alpine3.21 AS builder
+RUN apk update && apk upgrade --no-cache
+
+FROM nginx:1.27-alpine AS final
+RUN apk update && apk upgrade --no-cache
+```
+
+```dockerfile
+# ❌ Prohibido — imagen Alpine sin parchear
+FROM nginx:1.27-alpine AS final
+COPY --from=builder /app/dist /usr/share/nginx/html
+```
+
+> **Nota:** El `apk upgrade` del Stage 1 (builder) no afecta la imagen final,
+> pero se incluye por consistencia. El crítico es siempre el Stage 2 (runtime).
+
+### Estructura correcta del Dockerfile del backend (multi-stage)
+
+```dockerfile
+# ── Stage 1: builder ────────────────────────────────────────
+FROM python:3.11-slim AS builder
+RUN apt-get update && apt-get install -y gcc libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ── Stage 2: runtime mínimo ─────────────────────────────────
+FROM python:3.11-slim AS final
+RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 curl \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /install /usr/local
+WORKDIR /app
+# Solo archivos necesarios para producción — nunca tests/ ni eval_pipeline.py
+COPY main.py config.py logger.py ./
+COPY rag/ ./rag/
+RUN mkdir -p /app/data /app/storage /home/appuser /tmp/fastembed_cache \
+    && addgroup --system appgroup \
+    && adduser --system --ingroup appgroup --home /home/appuser appuser \
+    && chown -R appuser:appgroup /app /home/appuser /tmp/fastembed_cache
+USER appuser
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Estructura correcta del Dockerfile del frontend (multi-stage)
+
+```dockerfile
+# ── Stage 1: Build ──────────────────────────────────────────
+FROM node:22-alpine3.21 AS builder
+RUN apk update && apk upgrade --no-cache
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# ── Stage 2: Serve con nginx ────────────────────────────────
+FROM nginx:1.27-alpine AS final
+RUN apk update && apk upgrade --no-cache
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /usr/share/nginx/html \
+    && touch /run/nginx.pid \
+    && chown nginx:nginx /run/nginx.pid
+USER nginx
+EXPOSE 80
+```
+
+### Nginx (`frontend/nginx.conf`) — configuración obligatoria
 
 ```nginx
-location /api/ {
-    proxy_pass http://api:8000/;   # proxy al backend interno
-    proxy_set_header Host $host;
-    proxy_buffering off;           # CRÍTICO para SSE streaming
-    proxy_cache off;               # CRÍTICO para SSE streaming
-    chunked_transfer_encoding on;  # CRÍTICO para SSE streaming
-}
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
 
-location / {
-    try_files $uri $uri/ /index.html;  # SPA fallback
+    client_max_body_size 50M;   # igual que MAX_UPLOAD_MB del backend
+
+    # SPA fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Proxy al backend — directivas SSE son CRÍTICAS, no eliminar
+    location /api/ {
+        proxy_pass http://api:8000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_buffering off;           # CRÍTICO para SSE — nunca remover
+        proxy_cache off;               # CRÍTICO para SSE — nunca remover
+        proxy_read_timeout 300s;       # necesario para respuestas largas del LLM
+        chunked_transfer_encoding on;  # CRÍTICO para SSE — nunca remover
+    }
 }
 ```
 
-**Dockerfiles — reglas:**
+### `docker-compose.override.yml` para desarrollo
 
-- Backend: imagen base `python:3.11-slim`. Copiar solo lo necesario (no `tests/`,
-  no `.env`). Ejecutar con usuario no-root.
-- Frontend: multi-stage (`node:20-alpine` para build, `nginx:stable-alpine` para serve).
-- Siempre incluir `.dockerignore` en ambos servicios.
+- Backend: montar `./backend:/app` como volumen único (incluye `data/` y `storage/`
+  implícitamente — **no duplicar** mounts de subdirectorios) + `--reload`.
+- Frontend: no necesita override — usar `npm run dev` directamente con Vite.
 
-**`docker-compose.override.yml` para desarrollo:**
+```yaml
+# ✅ Correcto — sin mounts redundantes
+services:
+  api:
+    volumes:
+      - ./backend:/app
+      - fastembed_cache:/tmp/fastembed_cache
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-- Backend: montar `./backend:/app` como volumen + `command: uvicorn main:app --reload`
-- Frontend: no se usa en override (usar `npm run dev` directamente con Vite)
+# ❌ Prohibido — mounts redundantes (data/ y storage/ ya están en /app)
+services:
+  api:
+    volumes:
+      - ./backend:/app
+      - ./backend/data:/app/data      # redundante
+      - ./backend/storage:/app/storage  # redundante
+```
+
+### Imagen de Qdrant — no usar `nginxinc/nginx-unprivileged`
+
+**No migrar** a `nginxinc/nginx-unprivileged` en este proyecto. Requeriría
+cambiar el puerto a 8080 y reconfigurar docker-compose.yml, con riesgo de romper
+el pipeline SSE que ya está validado. Mantener `nginx:1.27-alpine` con `apk upgrade`.
 
 ---
 
@@ -396,7 +530,7 @@ location / {
 | `API_KEY` | `null` | Bearer token para endpoints críticos |
 | `MAX_UPLOAD_MB` | `50` | Tamaño máximo de archivos |
 | `API_PORT` | `8000` | Puerto del backend |
-| `CORS_ORIGINS` | `http://localhost:80` | Orígenes permitidos (separados por coma) |
+| `CORS_ORIGINS` | `http://localhost,http://localhost:80,http://localhost:5173` | Orígenes CORS (coma) |
 
 > **Crítico:** `EMBEDDING_DIM=3072` debe coincidir con la colección en Qdrant.
 > Si se cambia el modelo de embedding, eliminar la colección y reingestár.
@@ -415,14 +549,19 @@ location / {
 ### Frontend
 - ❌ Llamar a axios directamente desde componentes (siempre vía `ragApi.ts`)
 - ❌ Usar `v-html` sin `DOMPurify.sanitize()`
-- ❌ Polling para simular streaming (usar SSE/ReadableStream)
+- ❌ Polling para simular streaming (usar `fetch` + `ReadableStream`)
+- ❌ `EventSource` nativo para endpoints POST (solo soporta GET)
 - ❌ Variables de entorno con secrets en `VITE_*`
 - ❌ Options API (siempre `<script setup lang="ts">`)
 
 ### Docker
-- ❌ `proxy_buffering on` en nginx cuando hay SSE (corta el stream)
+- ❌ Imagen Alpine sin `apk update && apk upgrade --no-cache` tras el `FROM`
+- ❌ Usar `latest` como tag de imagen (siempre pinear versión)
+- ❌ `proxy_buffering on` en nginx con SSE (corta el stream)
 - ❌ Correr contenedores como `root`
-- ❌ Commitear `.env` al repositorio (agregar a `.gitignore`)
+- ❌ Commitear `.env` al repositorio
+- ❌ Mounts de subdirectorios redundantes en override cuando ya se monta el padre
+- ❌ Copiar `tests/` o `eval_pipeline.py` en la imagen de producción del backend
 
 ---
 
@@ -432,7 +571,9 @@ location / {
 - Cada endpoint tiene al menos: 1 test happy path + 1 error case.
 - Los fixtures de `conftest.py` proveen `AsyncClient` y un índice mockeado.
 - No conectar a Qdrant real en tests unitarios (usar mock).
+- No importar `settings` directamente en tests — usar `override_settings` o variables de entorno de test.
 
 **Frontend (`Vitest`):**
 - Los composables se testean con `@vue/test-utils` + `vi.mock` para `ragApi.ts`.
 - Al menos 1 test por composable: estado inicial, llamada exitosa, manejo de error.
+- El mock de `ragApi.ts` debe respetar los tipos definidos en `src/types/rag.ts`.
