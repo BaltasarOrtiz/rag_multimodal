@@ -2,7 +2,7 @@ import { ref, watchEffect } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import ragApi from '@/api/ragApi'
 import { useCollectionStore } from '@/stores/useCollectionStore'
-import type { QueryResponse, DocumentInfo, IngestStatus, ChatMessage, SourceInfo, RagStreamError } from '@/types/rag'
+import type { QueryResponse, DocumentInfo, IngestStatus, ChatMessage, SourceInfo, RagStreamError, ChatRequest } from '@/types/rag'
 
 // ── Health ──────────────────────────────────────────────────
 export function useHealth() {

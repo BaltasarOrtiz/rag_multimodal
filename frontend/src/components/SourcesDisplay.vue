@@ -73,7 +73,7 @@ function handleImageLoad(filename: string, e: Event) {
               </div>
               <span class="native-badge">IMAGEN NATIVA</span>
               <span v-if="imageSizes[source.filename]" class="image-dims">
-                {{ imageSizes[source.filename].w }} × {{ imageSizes[source.filename].h }}px
+                {{ imageSizes[source.filename]?.w }} × {{ imageSizes[source.filename]?.h }}px
               </span>
             </template>
             <p v-else class="chunk-text">{{ source.text }}</p>
