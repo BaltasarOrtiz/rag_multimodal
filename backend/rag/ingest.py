@@ -1,9 +1,11 @@
+import base64
 from datetime import datetime, timezone
 from pathlib import Path
 from llama_index.core import (
     Settings, StorageContext, VectorStoreIndex,
     SimpleDirectoryReader,
 )
+from llama_index.core.schema import ImageNode
 from llama_index.core.node_parser import SemanticSplitterNodeParser, SentenceSplitter
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
@@ -53,7 +55,13 @@ def get_collection_storage_dir(collection_name: str) -> Path:
     return BASE_STORAGE_DIR / collection_name
 
 
-def get_settings():
+_settings_initialized = False
+
+
+def _init_llama_settings() -> None:
+    global _settings_initialized
+    if _settings_initialized:
+        return
     Settings.embed_model = GoogleGenAIEmbedding(
         model_name="models/gemini-embedding-2-preview",
         api_key=app_settings.google_api_key,
@@ -67,6 +75,7 @@ def get_settings():
     # Fallback: se usa solo si SemanticSplitter está desactivado
     Settings.chunk_size = 512
     Settings.chunk_overlap = 64
+    _settings_initialized = True
 
 
 def get_qdrant_client():
@@ -166,6 +175,51 @@ def _enrich_metadata(nodes, data_dir: Path):
     return nodes
 
 
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+
+
+def _embed_images_natively(data_dir: Path) -> list:
+    """
+    Genera ImageNodes con embeddings multimodal nativos para cada imagen.
+    Usa gemini-embedding-2-preview directamente con el contenido binario
+    en lugar de OCR o descripción de texto.
+    Retorna lista de ImageNodes listos para indexar junto a los text nodes.
+    """
+    image_nodes = []
+    for img_path in data_dir.iterdir():
+        if not img_path.is_file():
+            continue
+        if img_path.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+        try:
+            raw = img_path.read_bytes()
+            ext = img_path.suffix.lower().lstrip(".")
+            mime = "jpeg" if ext in ("jpg", "jpeg") else ext
+            b64 = base64.b64encode(raw).decode("utf-8")
+            data_uri = f"data:image/{mime};base64,{b64}"
+
+            # Generar embedding nativo via Settings.embed_model
+            embedding = Settings.embed_model.get_text_embedding(data_uri)
+
+            node = ImageNode(
+                image_path=str(img_path),
+                image_url=str(img_path),
+                embedding=embedding,
+                metadata={
+                    "file_name": img_path.name,
+                    "file_type": img_path.suffix.lower(),
+                    "source": img_path.name,
+                    "multimodal_native": True,
+                },
+            )
+            image_nodes.append(node)
+            print(f"\U0001f5bc\ufe0f  Imagen embedeada nativamente: {img_path.name}")
+        except Exception as exc:
+            print(f"\u26a0\ufe0f  No se pudo embeddear {img_path.name} nativamente ({exc}). Saltando.")
+            continue
+    return image_nodes
+
+
 def ingest_documents(collection_name: str | None = None) -> VectorStoreIndex:
     """
     Carga, procesa y embeddea los documentos de una colección.
@@ -176,27 +230,30 @@ def ingest_documents(collection_name: str | None = None) -> VectorStoreIndex:
     data_dir = get_collection_data_dir(col)
     storage_dir = get_collection_storage_dir(col)
 
-    get_settings()
+    _init_llama_settings()
     q_client = get_qdrant_client()
     vector_store = get_vector_store(q_client, collection_name=col, allow_recreate=True)
 
     docs = SimpleDirectoryReader(
         str(data_dir),
-        required_exts=[".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md"],
+        required_exts=[".pdf", ".txt", ".md"],
     ).load_data()
-
-    if not docs:
-        raise FileNotFoundError(f"No se encontraron documentos en {data_dir}")
 
     parser = _build_node_parser()
     nodes = parser.get_nodes_from_documents(docs, show_progress=True)
     nodes = _enrich_metadata(nodes, data_dir)
 
+    image_nodes = _embed_images_natively(data_dir)
+    all_nodes = nodes + image_nodes
+
+    if not all_nodes:
+        raise FileNotFoundError(f"No se encontraron documentos en {data_dir}")
+
     mode = "semántico" if app_settings.enable_semantic_chunking else "fijo"
-    print(f"📄 [{col}] {len(nodes)} nodos generados con chunking {mode}.")
+    print(f"📄 [{col}] {len(nodes)} nodos de texto + {len(image_nodes)} imágenes = {len(all_nodes)} nodos totales (chunking {mode}).")
 
     storage_ctx = StorageContext.from_defaults(vector_store=vector_store)
-    index = VectorStoreIndex(nodes, storage_context=storage_ctx, show_progress=True)
+    index = VectorStoreIndex(all_nodes, storage_context=storage_ctx, show_progress=True)
 
     storage_dir.mkdir(parents=True, exist_ok=True)
     index.storage_context.persist(persist_dir=str(storage_dir))
@@ -210,7 +267,7 @@ def load_existing_index(collection_name: str | None = None) -> VectorStoreIndex 
     Retorna None si la colección no existe en Qdrant (evita índices 'fantasma').
     """
     col = collection_name or app_settings.collection_name
-    get_settings()
+    _init_llama_settings()
     q_client = get_qdrant_client()
     existing = {c.name for c in q_client.get_collections().collections}
     if col not in existing:
