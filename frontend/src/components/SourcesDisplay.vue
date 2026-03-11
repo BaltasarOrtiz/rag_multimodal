@@ -2,14 +2,30 @@
 import { ref } from 'vue'
 import type { SourceInfo } from '@/types/rag'
 
+type ExtendedSource = SourceInfo & { file_type?: string }
+
 defineProps<{
-  sources: SourceInfo[]
+  sources: ExtendedSource[]
 }>()
 
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif'])
+
+function isImage(src: ExtendedSource): boolean {
+  return (
+    IMAGE_EXTS.has((src.file_type ?? '').toLowerCase()) ||
+    IMAGE_EXTS.has('.' + src.filename.split('.').pop()?.toLowerCase())
+  )
+}
+
 const expanded = ref<Record<string, boolean>>({})
+const imageErrors = ref<Record<string, boolean>>({})
 
 function toggle(filename: string) {
   expanded.value[filename] = !expanded.value[filename]
+}
+
+function handleImageError(filename: string) {
+  imageErrors.value[filename] = true
 }
 </script>
 
@@ -22,14 +38,28 @@ function toggle(filename: string) {
     <div class="sources-list">
       <div v-for="source in sources" :key="source.filename + source.score" class="source-item">
         <div class="source-chip" @click="toggle(source.filename)">
-          <i class="pi pi-file" />
+          <i :class="['pi', isImage(source) ? 'pi-image' : 'pi-file']" />
           <span class="source-name">{{ source.filename }}</span>
           <span class="source-score">{{ (source.score * 100).toFixed(0) }}%</span>
           <i :class="['pi', 'expand-icon', expanded[source.filename] ? 'pi-chevron-up' : 'pi-chevron-down']" />
         </div>
         <Transition name="chunk">
           <div v-if="expanded[source.filename]" class="chunk-preview">
-            <p class="chunk-text">{{ source.text }}</p>
+            <template v-if="isImage(source)">
+              <img
+                v-if="!imageErrors[source.filename]"
+                :src="`/api/files/${source.filename}`"
+                :alt="source.filename"
+                class="source-thumbnail"
+                @error="handleImageError(source.filename)"
+              />
+              <div v-else class="image-placeholder">
+                <i class="pi pi-image" />
+                <span>{{ source.filename }}</span>
+              </div>
+              <span class="native-badge">IMAGEN NATIVA</span>
+            </template>
+            <p v-else class="chunk-text">{{ source.text }}</p>
           </div>
         </Transition>
       </div>
@@ -143,6 +173,45 @@ function toggle(filename: string) {
 .chunk-leave-to {
   max-height: 0;
   opacity: 0;
+}
+
+/* Image preview */
+.source-thumbnail {
+  display: block;
+  max-height: 120px;
+  width: auto;
+  border-radius: 6px;
+  object-fit: contain;
+  margin-bottom: 0.5rem;
+}
+
+.image-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(139, 92, 246, 0.06);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.image-placeholder i {
+  font-size: 1.5rem;
+  color: var(--violet-400);
+}
+
+.native-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cyan-400);
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
 }
 </style>
 

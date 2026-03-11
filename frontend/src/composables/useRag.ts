@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, watchEffect } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import ragApi from '@/api/ragApi'
 import { useCollectionStore } from '@/stores/useCollectionStore'
@@ -202,14 +202,27 @@ export function useChat() {
   const streamingText = ref('')
   const error = ref<RagStreamError | null>(null)
   const topK = ref(3)
+  const fileTypeFilter = ref<string | null>(null)
 
-  const sessionId = computed(() => {
-    let id = localStorage.getItem('rag_session_id')
-    if (!id) {
-      id = crypto.randomUUID()
-      localStorage.setItem('rag_session_id', id)
-    }
-    return id
+  const STORAGE_KEY_MESSAGES = 'rag_chat_messages'
+  const STORAGE_KEY_SESSION  = 'rag_chat_session_id'
+
+  // Carga inicial desde localStorage
+  const stored = localStorage.getItem(STORAGE_KEY_MESSAGES)
+  if (stored) {
+    try { messages.value = JSON.parse(stored) } catch { messages.value = [] }
+  }
+  const storedSession = localStorage.getItem(STORAGE_KEY_SESSION)
+  const sessionId = ref(storedSession ?? crypto.randomUUID())
+  if (!storedSession) localStorage.setItem(STORAGE_KEY_SESSION, sessionId.value)
+
+  // Persistir en cada cambio
+  watchEffect(() => {
+    localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messages.value.slice(-50)))
+  })
+  watchEffect(() => {
+    if (sessionId.value)
+      localStorage.setItem(STORAGE_KEY_SESSION, sessionId.value)
   })
 
   async function send(message: string) {
@@ -229,7 +242,7 @@ export function useChat() {
     const col = collectionStore.activeCollection || undefined
 
     await ragApi.chatStream(
-      { message, session_id: sessionId.value, top_k: topK.value },
+      { message, session_id: sessionId.value, top_k: topK.value, file_type_filter: fileTypeFilter.value || null } as ChatRequest,
       (token) => { streamingText.value += token },
       (data) => {
         messages.value.push({
@@ -271,9 +284,10 @@ export function useChat() {
 
   async function clearSession() {
     try { await ragApi.clearChatSession(sessionId.value) } catch { /* ignorar */ }
-    localStorage.removeItem('rag_session_id')
     messages.value = []
     error.value = null
+    localStorage.removeItem(STORAGE_KEY_MESSAGES)
+    localStorage.removeItem(STORAGE_KEY_SESSION)
   }
 
   async function submitFeedback(msg: ChatMessage, rating: 1 | -1) {
@@ -319,6 +333,7 @@ export function useChat() {
     streamingText,
     error,
     topK,
+    fileTypeFilter,
     sessionId,
     send,
     clearSession,

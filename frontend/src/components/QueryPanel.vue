@@ -6,14 +6,22 @@ import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import Slider from 'primevue/slider'
 import Skeleton from 'primevue/skeleton'
+import SelectButton from 'primevue/selectbutton'
 import SourcesDisplay from './SourcesDisplay.vue'
 import { useChat } from '@/composables/useRag'
 import type { ChatMessage, RagErrorCode } from '@/types/rag'
 
 const {
   messages, loading, streaming, streamingText, error,
-  topK, send, clearSession, submitFeedback, exportMarkdown,
+  topK, fileTypeFilter, send, clearSession, submitFeedback, exportMarkdown,
 } = useChat()
+
+const filterOptions = [
+  { label: 'Todos',    value: null,   icon: 'pi pi-th-large' },
+  { label: 'PDF',      value: '.pdf', icon: 'pi pi-file-pdf' },
+  { label: 'Imágenes', value: '.png', icon: 'pi pi-image' },
+  { label: 'Texto',    value: '.txt', icon: 'pi pi-file' },
+]
 
 const inputText = ref('')
 const scrollEl = ref<HTMLElement | null>(null)
@@ -138,6 +146,23 @@ async function handleNewChat() {
           @click="handleNewChat"
         />
       </div>
+    </div>
+
+    <!-- File type filter -->
+    <div class="filter-bar glass-card">
+      <SelectButton
+        v-model="fileTypeFilter"
+        :options="filterOptions"
+        option-value="value"
+        size="small"
+        :disabled="streaming"
+        class="filter-select-btn"
+      >
+        <template #option="slotProps">
+          <i :class="slotProps.option.icon" />
+          <span>{{ slotProps.option.label }}</span>
+        </template>
+      </SelectButton>
     </div>
 
     <!-- Messages -->
@@ -303,6 +328,40 @@ async function handleNewChat() {
   justify-content: space-between;
   gap: 1rem;
   flex-shrink: 0;
+}
+
+/* Filter bar */
+.filter-bar {
+  padding: 0.4rem 1.25rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+:deep(.filter-select-btn .p-selectbutton) {
+  background: transparent;
+  gap: 0.25rem;
+}
+
+:deep(.filter-select-btn .p-selectbutton .p-button) {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  padding: 0.25rem 0.625rem;
+  gap: 0.35rem;
+  border-radius: 6px;
+}
+
+:deep(.filter-select-btn .p-selectbutton .p-button.p-highlight) {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: rgba(34, 211, 238, 0.4);
+  color: var(--cyan-400);
+}
+
+:deep(.filter-select-btn .p-selectbutton .p-button:hover:not(.p-highlight):not(:disabled)) {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary);
 }
 
 .header-left {
