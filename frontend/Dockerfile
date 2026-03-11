@@ -10,6 +10,8 @@ RUN npm run build
 FROM nginx:1.27-alpine AS final
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-RUN chown -R nginx:nginx /var/cache/nginx /usr/share/nginx/html
+RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /usr/share/nginx/html \
+    && touch /run/nginx.pid \
+    && chown nginx:nginx /run/nginx.pid
 USER nginx
 EXPOSE 80
