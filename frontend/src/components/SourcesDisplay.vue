@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import type { SourceInfo } from '@/types/rag'
 
-type ExtendedSource = SourceInfo & { file_type?: string }
+type ExtendedSource = SourceInfo & { file_type?: string; multimodal_native?: boolean }
 
 defineProps<{
   sources: ExtendedSource[]
@@ -17,8 +17,13 @@ function isImage(src: ExtendedSource): boolean {
   )
 }
 
+function isNativeImage(src: ExtendedSource): boolean {
+  return isImage(src) && !!src.multimodal_native
+}
+
 const expanded = ref<Record<string, boolean>>({})
 const imageErrors = ref<Record<string, boolean>>({})
+const imageSizes = ref<Record<string, { w: number; h: number }>>({})
 
 function toggle(filename: string) {
   expanded.value[filename] = !expanded.value[filename]
@@ -26,6 +31,11 @@ function toggle(filename: string) {
 
 function handleImageError(filename: string) {
   imageErrors.value[filename] = true
+}
+
+function handleImageLoad(filename: string, e: Event) {
+  const img = e.target as HTMLImageElement
+  imageSizes.value[filename] = { w: img.naturalWidth, h: img.naturalHeight }
 }
 </script>
 
@@ -41,10 +51,13 @@ function handleImageError(filename: string) {
           <i :class="['pi', isImage(source) ? 'pi-image' : 'pi-file']" />
           <span class="source-name">{{ source.filename }}</span>
           <span class="source-score">{{ (source.score * 100).toFixed(0) }}%</span>
-          <i :class="['pi', 'expand-icon', expanded[source.filename] ? 'pi-chevron-up' : 'pi-chevron-down']" />
+          <i
+            v-if="!isNativeImage(source)"
+            :class="['pi', 'expand-icon', expanded[source.filename] ? 'pi-chevron-up' : 'pi-chevron-down']"
+          />
         </div>
         <Transition name="chunk">
-          <div v-if="expanded[source.filename]" class="chunk-preview">
+          <div v-if="expanded[source.filename] || isNativeImage(source)" class="chunk-preview">
             <template v-if="isImage(source)">
               <img
                 v-if="!imageErrors[source.filename]"
@@ -52,12 +65,16 @@ function handleImageError(filename: string) {
                 :alt="source.filename"
                 class="source-thumbnail"
                 @error="handleImageError(source.filename)"
+                @load="handleImageLoad(source.filename, $event)"
               />
               <div v-else class="image-placeholder">
                 <i class="pi pi-image" />
                 <span>{{ source.filename }}</span>
               </div>
               <span class="native-badge">IMAGEN NATIVA</span>
+              <span v-if="imageSizes[source.filename]" class="image-dims">
+                {{ imageSizes[source.filename].w }} × {{ imageSizes[source.filename].h }}px
+              </span>
             </template>
             <p v-else class="chunk-text">{{ source.text }}</p>
           </div>
@@ -212,6 +229,13 @@ function handleImageError(filename: string) {
   border: 1px solid rgba(34, 211, 238, 0.25);
   border-radius: 9999px;
   padding: 0.125rem 0.5rem;
+}
+
+.image-dims {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
 }
 </style>
 

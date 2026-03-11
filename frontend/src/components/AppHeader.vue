@@ -1,9 +1,22 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import Select from 'primevue/select'
 import { useHealth } from '@/composables/useRag'
 import { useCollectionStore } from '@/stores/useCollectionStore'
 
 const { status, indexLoaded } = useHealth()
 const collectionStore = useCollectionStore()
+
+const collectionOptions = computed(() =>
+  collectionStore.collections.map(c => ({
+    label: c.is_default ? `${c.name} ★` : c.name,
+    value: c.name,
+  }))
+)
+
+function onCollectionChange(name: string) {
+  collectionStore.setActive(name)
+}
 </script>
 
 <template>
@@ -20,12 +33,17 @@ const collectionStore = useCollectionStore()
         </div>
       </div>
 
-      <!-- Centro: colección activa -->
-      <div class="active-collection" v-if="collectionStore.activeCollection">
-        <i class="pi pi-th-large" />
-        <span class="collection-name">{{ collectionStore.activeCollection }}</span>
-        <span v-if="collectionStore.activeInfo?.is_default" class="default-badge">default</span>
-      </div>
+      <!-- Centro: selector de colección activa -->
+      <Select
+        :model-value="collectionStore.activeCollection"
+        :options="collectionOptions"
+        option-label="label"
+        option-value="value"
+        placeholder="Colección..."
+        class="collection-select"
+        :disabled="!collectionOptions.length"
+        @change="onCollectionChange($event.value)"
+      />
 
       <!-- Status badge -->
       <div class="header-right">
@@ -99,42 +117,30 @@ const collectionStore = useCollectionStore()
   text-transform: uppercase;
 }
 
-/* Colección activa centrada */
-.active-collection {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.85rem;
+/* Selector de colección */
+.collection-select {
+  min-width: 160px;
+  max-width: 220px;
+  font-size: 0.8rem;
+}
+:deep(.collection-select .p-select) {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: rgba(34, 211, 238, 0.06);
-  border: 1px solid rgba(34, 211, 238, 0.18);
-  font-size: 0.8125rem;
+  color: var(--text-primary);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+:deep(.collection-select .p-select:hover) {
+  border-color: rgba(34,211,238,0.4);
+}
+:deep(.collection-select .p-select-label) {
   color: var(--cyan-400);
   font-weight: 500;
-  letter-spacing: 0.01em;
 }
-
-.active-collection i {
-  font-size: 0.75rem;
-  opacity: 0.8;
-}
-
-.collection-name {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.default-badge {
-  font-size: 0.6rem;
-  padding: 0.1rem 0.35rem;
-  border-radius: 4px;
-  background: rgba(34, 211, 238, 0.15);
+:deep(.p-select-overlay .p-select-option.p-selected) {
+  background: rgba(34,211,238,0.1);
   color: var(--cyan-400);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 
 /* Status pill */
@@ -176,9 +182,9 @@ const collectionStore = useCollectionStore()
   50% { opacity: 0.3; }
 }
 
-/* Responsive: esconder label de colección en pantallas pequeñas */
+/* Responsive: esconder selector de colección en pantallas pequeñas */
 @media (max-width: 700px) {
-  .active-collection {
+  .collection-select {
     display: none;
   }
 }
