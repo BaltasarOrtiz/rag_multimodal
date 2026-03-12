@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # Modelos
     llm_model: str = "gemini-2.5-flash"
-    embedding_model: str = "models/gemini-embedding-exp-03-07"
+    embedding_model: str = "models/gemini-embedding-2-preview"
 
     # API
     max_upload_mb: int = 50

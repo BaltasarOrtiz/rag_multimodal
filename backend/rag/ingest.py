@@ -63,7 +63,7 @@ def _init_llama_settings() -> None:
     if _settings_initialized:
         return
     Settings.embed_model = GoogleGenAIEmbedding(
-        model_name="models/gemini-embedding-2-preview",
+        model_name=app_settings.embedding_model,
         api_key=app_settings.google_api_key,
         embed_batch_size=10,
     )

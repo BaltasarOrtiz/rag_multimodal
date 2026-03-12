@@ -19,7 +19,7 @@ const { status, indexLoaded } = useHealth()
 // ── Estado ────────────────────────────────────────────────────
 const config = ref<RagConfig>({
   llm_model: 'gemini-2.5-flash',
-  embedding_model: 'models/gemini-embedding-exp-03-07',
+  embedding_model: 'models/gemini-embedding-2-preview',
   enable_hybrid: true,
   enable_reranker: true,
   enable_hyde: false,
@@ -41,8 +41,8 @@ const llmOptions = [
 ]
 
 const embeddingOptions = [
-  { label: 'models/gemini-embedding-exp-03-07 (recomendado)', value: 'models/gemini-embedding-exp-03-07' },
-  { label: 'models/text-embedding-004',                        value: 'models/text-embedding-004' },
+  { label: 'models/gemini-embedding-2-preview (recomendado)', value: 'models/gemini-embedding-2-preview' },
+  { label: 'models/text-embedding-004',                       value: 'models/text-embedding-004' },
 ]
 
 const rerankerOptions = [
@@ -65,7 +65,7 @@ function llmInfo(model: string): string {
 }
 
 function embeddingInfo(model: string): string {
-  if (model === 'models/gemini-embedding-exp-03-07') return 'Dimensión: 3072'
+  if (model === 'models/gemini-embedding-2-preview') return 'Dimensión: 3072'
   if (model === 'models/text-embedding-004') return 'Dimensión: 768'
   return ''
 }
