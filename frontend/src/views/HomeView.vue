@@ -12,21 +12,21 @@ const sidebarCollapsed = ref(false)
 </script>
 
 <template>
-  <div class="home-layout">
+  <div class="min-h-screen flex flex-col">
     <ConfirmDialog />
     <AppHeader />
 
-    <div class="main-content">
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden" style="height: calc(100vh - 64px - 48px);">
       <!-- Sidebar izquierdo: historial de conversaciones -->
       <ConversationSidebar v-model:collapsed="sidebarCollapsed" />
 
       <!-- Columna central: chat -->
-      <section class="center-column">
-        <QueryPanel />
+      <section class="flex-1 min-w-0 p-3 md:p-5 overflow-hidden flex flex-col">
+        <QueryPanel class="h-full" />
       </section>
 
       <!-- Sidebar derecho: documentos/ingestión -->
-      <aside class="right-sidebar">
+      <aside class="hidden xl:flex w-80 min-w-[280px] shrink-0 pt-4 pr-4 pb-4 flex-col gap-4 overflow-y-auto border-l border-white/10 dark:border-white/10" style="scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) transparent;">
         <CollectionManager />
         <DocumentUpload />
         <IngestPanel />
@@ -34,79 +34,9 @@ const sidebarCollapsed = ref(false)
     </div>
 
     <!-- Footer -->
-    <footer class="app-footer">
+    <footer class="text-center p-3.5 text-[0.6875rem] text-cape-cod-500 border-t border-white/10 shrink-0 tracking-wider">
       <span>LlamaIndex · Gemini 2.5 Flash · Qdrant · FastAPI · Vue 3 + PrimeVue</span>
     </footer>
   </div>
 </template>
 
-<style scoped>
-.home-layout {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: row;
-  overflow: hidden;
-  height: calc(100vh - 64px - 48px); /* viewport - header - footer */
-}
-
-/* Columna central */
-.center-column {
-  flex: 1;
-  min-width: 0;
-  padding: 1rem 1.25rem;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Sidebar derecho: documentos / ingestión */
-.right-sidebar {
-  width: 320px;
-  min-width: 280px;
-  flex-shrink: 0;
-  padding: 1rem 1rem 1rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  overflow-y: auto;
-  border-left: 1px solid var(--border-subtle);
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-subtle) transparent;
-}
-
-/* Footer */
-.app-footer {
-  text-align: center;
-  padding: 0.875rem;
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border-subtle);
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-}
-
-/* Responsive: pantallas medianas — ocultar right-sidebar */
-@media (max-width: 1100px) {
-  .right-sidebar {
-    display: none;
-  }
-}
-
-/* Responsive: móvil */
-@media (max-width: 767px) {
-  .main-content {
-    height: auto;
-    flex-direction: column;
-  }
-
-  .center-column {
-    padding: 0.75rem;
-  }
-}
-</style>

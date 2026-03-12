@@ -23,16 +23,16 @@ function onCollectionChange(name: string) {
 </script>
 
 <template>
-  <header class="app-header">
-    <div class="header-inner">
+  <header class="sticky top-0 z-[100] bg-cape-cod-950/85 backdrop-blur-md border-b border-white/10">
+    <div class="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
       <!-- Logo -->
-      <div class="logo">
-        <div class="logo-icon">
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 bg-gradient-to-br from-cape-cod-500 to-cape-cod-700 rounded-xl flex items-center justify-center text-lg text-white shadow-[0_0_20px_rgba(81,89,92,0.3)]">
           <i class="pi pi-database" />
         </div>
-        <div class="logo-text">
-          <span class="logo-title gradient-text">RAG Multimodal</span>
-          <span class="logo-sub">LlamaIndex · Gemini · Qdrant</span>
+        <div class="flex flex-col leading-tight">
+          <span class="text-lg font-bold gradient-text">RAG Multimodal</span>
+          <span class="text-[0.6875rem] text-cape-cod-500 tracking-wider uppercase">LlamaIndex · Gemini · Qdrant</span>
         </div>
       </div>
 
@@ -43,29 +43,51 @@ function onCollectionChange(name: string) {
         option-label="label"
         option-value="value"
         placeholder="Colección..."
-        class="collection-select"
+        class="hidden sm:block min-w-[160px] max-w-[220px] text-sm !bg-white/5 !border-white/10 !text-cape-cod-50 hover:!border-cape-cod-400/40 rounded-lg px-2 py-1"
         :disabled="!collectionOptions.length"
         @change="onCollectionChange($event.value)"
-      />
+      >
+        <template #value="slotProps">
+            <span v-if="slotProps.value" class="text-cape-cod-400 font-medium">{{ collectionOptions.find(o => o.value === slotProps.value)?.label }}</span>
+            <span v-else class="text-cape-cod-500">Colección...</span>
+        </template>
+        <template #option="slotProps">
+             <div :class="{'text-cape-cod-400 bg-cape-cod-400/10': slotProps.option.value === collectionStore.activeCollection}">{{slotProps.option.label}}</div>
+        </template>
+      </Select>
 
       <!-- Acciones del header -->
-      <div class="header-right">
+      <div class="flex items-center gap-4">
         <!-- Botón de configuraciones -->
         <Button
           icon="pi pi-cog"
           text
           rounded
-          class="settings-btn"
+          class="!text-cape-cod-500 hover:!text-cape-cod-400 shrink-0"
           title="Configuraciones"
           @click="router.push('/settings')"
         />
 
         <!-- Status badge -->
-        <div class="status-pill" :class="status">
-          <span class="status-dot" />
+        <div 
+          class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[0.8125rem] font-medium border border-white/10 bg-white/5 transition-all duration-300"
+          :class="{
+            'border-amber-500/30 bg-amber-500/10 text-amber-500': status === 'loading',
+            'border-emerald-500/30 bg-emerald-500/10 text-emerald-500': status === 'ok',
+            'border-red-500/30 bg-red-500/10 text-red-500': status === 'error'
+          }"
+        >
+          <span 
+            class="w-2 h-2 rounded-full"
+            :class="{
+              'bg-amber-500 animate-pulse': status === 'loading',
+              'bg-emerald-500 shadow-[0_0_8px_#10b981]': status === 'ok',
+              'bg-red-500': status === 'error'
+            }"
+          />
           <span v-if="status === 'loading'">Conectando…</span>
           <span v-else-if="status === 'ok'">
-            API OK · Index {{ indexLoaded ? 'cargado' : 'vacío' }}
+            API OK <span class="text-cape-cod-500">·</span> Index {{ indexLoaded ? 'cargado' : 'vacío' }}
           </span>
           <span v-else>API sin conexión</span>
         </div>
@@ -74,141 +96,3 @@ function onCollectionChange(name: string) {
   </header>
 </template>
 
-<style scoped>
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(10, 10, 15, 0.85);
-  backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.header-inner {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-}
-
-.logo-icon {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, var(--cyan-500), var(--violet-500));
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.125rem;
-  color: white;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
-}
-
-.logo-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.logo-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-}
-
-.logo-sub {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-/* Selector de colección */
-.collection-select {
-  min-width: 160px;
-  max-width: 220px;
-  font-size: 0.8rem;
-}
-:deep(.collection-select .p-select) {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  color: var(--text-primary);
-  padding: 0.25rem 0.5rem;
-  font-size: 0.8rem;
-}
-:deep(.collection-select .p-select:hover) {
-  border-color: rgba(34,211,238,0.4);
-}
-:deep(.collection-select .p-select-label) {
-  color: var(--cyan-400);
-  font-weight: 500;
-}
-:deep(.p-select-overlay .p-select-option.p-selected) {
-  background: rgba(34,211,238,0.1);
-  color: var(--cyan-400);
-}
-
-/* Status pill */
-.status-pill {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.875rem;
-  border-radius: 9999px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-card);
-  transition: all 0.3s ease;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.status-pill.loading .status-dot {
-  background: var(--warning);
-  animation: pulse 1.4s ease-in-out infinite;
-}
-
-.status-pill.ok .status-dot {
-  background: var(--success);
-  box-shadow: 0 0 8px var(--success);
-}
-
-.status-pill.error .status-dot {
-  background: var(--error);
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-/* Settings button */
-.settings-btn {
-  color: var(--text-muted) !important;
-  flex-shrink: 0;
-}
-.settings-btn:hover {
-  color: var(--cyan-400) !important;
-}
-
-/* Responsive: esconder selector de colección en pantallas pequeñas */
-@media (max-width: 700px) {
-  .collection-select {
-    display: none;
-  }
-}
-</style>

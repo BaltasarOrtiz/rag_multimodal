@@ -81,10 +81,10 @@ onMounted(() => store.fetchCollections())
 </script>
 
 <template>
-  <div class="collection-manager glass-card">
+  <div class="p-5 flex flex-col gap-3.5 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-200 hover:bg-white/10 hover:border-cape-cod-600/30">
     <!-- Header -->
-    <div class="cm-header">
-      <div class="cm-title">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2 text-xs font-semibold text-cape-cod-400 uppercase tracking-wide">
         <i class="pi pi-th-large" />
         <span>Base de conocimiento</span>
       </div>
@@ -95,65 +95,66 @@ onMounted(() => store.fetchCollections())
         rounded
         v-tooltip.left="'Nueva colección'"
         @click="openCreate"
+        class="!text-cape-cod-400 hover:!bg-white/10"
       />
     </div>
 
     <!-- Selector de colección activa -->
-    <div class="cm-selector">
-      <label class="cm-label">Colección activa</label>
+    <div>
+      <label class="block text-xs text-cape-cod-400 mb-1.5 font-medium">Colección activa</label>
       <Select
         :options="store.collections"
         optionLabel="name"
         optionValue="name"
         v-model="store.activeCollection"
         placeholder="Seleccionar colección…"
-        class="cm-select"
+        class="w-full !bg-white/5 !border-white/10 hover:!border-cape-cod-500/50"
         :loading="store.loading"
       >
         <template #option="{ option }">
-          <div class="col-option">
-            <div class="col-option-name">
+          <div class="flex flex-col gap-1 py-0.5">
+            <div class="flex items-center gap-1.5 text-[0.875rem] font-medium text-cape-cod-50">
               <span>{{ option.name }}</span>
-              <span v-if="option.is_default" class="col-badge default">default</span>
+              <span v-if="option.is_default" class="text-[0.65rem] px-1.5 py-0.5 rounded bg-cape-cod-400/10 text-cape-cod-400 font-semibold tracking-wide">default</span>
             </div>
-            <div class="col-option-stats">
-              <span><i class="pi pi-file-o" /> {{ option.doc_count }}</span>
-              <span><i class="pi pi-server" /> {{ option.vector_count.toLocaleString() }}</span>
+            <div class="flex gap-3 text-[0.7rem] text-cape-cod-500">
+              <span><i class="pi pi-file-o mr-1 text-[0.65rem]" /> {{ option.doc_count }}</span>
+              <span><i class="pi pi-server mr-1 text-[0.65rem] text-cape-cod-300" /> {{ option.vector_count.toLocaleString() }}</span>
             </div>
           </div>
         </template>
         <template #value="{ value }">
-          <span v-if="value">
-            <i class="pi pi-database" style="margin-right: 0.4rem; opacity: 0.6;" />
+          <span v-if="value" class="text-cape-cod-50 font-medium">
+            <i class="pi pi-database mr-1.5 opacity-60 text-cape-cod-400" />
             {{ value }}
           </span>
-          <span v-else class="placeholder">Seleccionar…</span>
+          <span v-else class="text-cape-cod-500">Seleccionar…</span>
         </template>
       </Select>
     </div>
 
     <!-- Lista de colecciones -->
-    <div class="cm-list" v-if="store.collections.length">
+    <div class="flex flex-col gap-1.5 max-h-60 overflow-y-auto pr-0.5" v-if="store.collections.length">
       <div
         v-for="col in store.collections"
         :key="col.name"
-        class="col-row"
-        :class="{ active: col.name === store.activeCollection }"
+        class="group flex items-center justify-between py-2.5 px-3 rounded-lg border border-white/10 bg-white/5 cursor-pointer transition-all duration-150 gap-2 hover:bg-white/10 hover:border-cape-cod-400/30"
+        :class="{ '!border-cape-cod-400/50 bg-cape-cod-400/10': col.name === store.activeCollection }"
         @click="store.setActive(col.name)"
       >
-        <div class="col-row-info">
-          <div class="col-row-name">
-            <i class="pi pi-database col-row-icon" :class="{ 'icon-active': col.name === store.activeCollection }" />
-            <span class="col-row-label" :title="col.name">{{ col.name }}</span>
-            <Badge v-if="col.is_default" value="default" severity="secondary" class="col-default-badge" />
+        <div class="flex-1 min-w-0 flex flex-col gap-1">
+          <div class="flex items-center gap-1.5 text-[0.8125rem] font-medium text-cape-cod-50">
+            <i class="pi pi-database text-[0.7rem] shrink-0 transition-colors duration-150" :class="col.name === store.activeCollection ? 'text-cape-cod-400' : 'text-cape-cod-500'" />
+            <span class="overflow-hidden text-ellipsis whitespace-nowrap" :title="col.name">{{ col.name }}</span>
+            <Badge v-if="col.is_default" value="default" severity="secondary" class="!text-[0.6rem]" />
           </div>
-          <div class="col-row-desc" v-if="col.description">{{ col.description }}</div>
-          <div class="col-row-stats">
-            <span class="stat-chip" v-tooltip.bottom="'Documentos'">
-              <i class="pi pi-file-o" /> {{ col.doc_count }}
+          <div class="text-[0.7rem] text-cape-cod-500 overflow-hidden text-ellipsis whitespace-nowrap" v-if="col.description">{{ col.description }}</div>
+          <div class="flex gap-2 mt-0.5">
+            <span class="text-[0.68rem] text-cape-cod-400 flex items-center gap-1" v-tooltip.bottom="'Documentos'">
+              <i class="pi pi-file-o text-[0.6rem]" /> {{ col.doc_count }}
             </span>
-            <span class="stat-chip vectors" v-tooltip.bottom="'Vectores indexados'">
-              <i class="pi pi-server" /> {{ col.vector_count.toLocaleString() }}
+            <span class="text-[0.68rem] text-cape-cod-300 flex items-center gap-1" v-tooltip.bottom="'Vectores indexados'">
+              <i class="pi pi-server text-[0.6rem]" /> {{ col.vector_count.toLocaleString() }}
             </span>
           </div>
         </div>
@@ -166,13 +167,13 @@ onMounted(() => store.fetchCollections())
           v-tooltip.left="col.is_default ? 'No se puede eliminar la colección default' : 'Eliminar colección'"
           :disabled="col.is_default"
           @click.stop="confirmDelete(col.name, col.is_default)"
-          class="col-delete-btn"
+          class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
         />
       </div>
     </div>
 
-    <div v-else-if="!store.loading" class="cm-empty">
-      <i class="pi pi-inbox" />
+    <div v-else-if="!store.loading" class="flex flex-col items-center gap-1.5 p-4 text-cape-cod-500 text-sm">
+      <i class="pi pi-inbox text-2xl opacity-40" />
       <span>Sin colecciones. Crea una.</span>
     </div>
 
@@ -184,7 +185,7 @@ onMounted(() => store.fetchCollections())
       size="small"
       :loading="store.loading"
       @click="store.fetchCollections()"
-      class="cm-refresh"
+      class="self-end text-xs !text-cape-cod-400 hover:!bg-white/10"
     />
   </div>
 
@@ -195,299 +196,39 @@ onMounted(() => store.fetchCollections())
     modal
     :style="{ width: '28rem' }"
     :closable="!creating"
-    class="create-dialog"
+    class="!bg-cape-cod-900 border-white/10"
   >
-    <div class="create-form">
-      <div class="form-field">
-        <label class="field-label">Nombre <span class="required">*</span></label>
+    <div class="flex flex-col gap-5 py-2">
+      <div class="flex flex-col gap-1.5">
+        <label class="text-[0.8125rem] font-medium text-cape-cod-400">Nombre <span class="text-red-400 ml-0.5">*</span></label>
         <InputText
           v-model="newName"
           placeholder="ej: medicina_2024"
-          class="field-input"
+          class="w-full !bg-white/5 !border-white/10"
           :invalid="!!nameError"
           @input="nameError = ''"
           @keyup.enter="submitCreate"
           autofocus
         />
-        <small v-if="nameError" class="field-error">{{ nameError }}</small>
-        <small v-else class="field-hint">Solo minúsculas, números, _ y -</small>
+        <small v-if="nameError" class="text-[0.7rem] text-red-400">{{ nameError }}</small>
+        <small v-else class="text-[0.7rem] text-cape-cod-500">Solo minúsculas, números, _ y -</small>
       </div>
 
-      <div class="form-field">
-        <label class="field-label">Descripción <span class="optional">(opcional)</span></label>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-[0.8125rem] font-medium text-cape-cod-400">Descripción <span class="text-[0.7rem] text-cape-cod-500 font-normal ml-1">(opcional)</span></label>
         <Textarea
           v-model="newDescription"
           placeholder="Describe el contenido de esta base de conocimiento…"
           rows="3"
-          class="field-input"
-          style="resize: none;"
+          class="w-full !bg-white/5 !border-white/10 resize-none"
         />
       </div>
     </div>
 
     <template #footer>
-      <Button label="Cancelar" text severity="secondary" @click="showCreate = false" :disabled="creating" />
-      <Button label="Crear colección" icon="pi pi-plus" :loading="creating" @click="submitCreate" />
+      <Button label="Cancelar" text severity="secondary" @click="showCreate = false" :disabled="creating" class="hover:bg-white/10" />
+      <Button label="Crear colección" icon="pi pi-plus" :loading="creating" @click="submitCreate" class="bg-gradient-to-br from-cape-cod-600 to-cape-cod-800 border-none" />
     </template>
   </Dialog>
 </template>
 
-<style scoped>
-.collection-manager {
-  padding: 1rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
-}
-
-/* Header */
-.cm-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.cm-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--cyan-400);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-/* Selector */
-.cm-label {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.35rem;
-  font-weight: 500;
-}
-
-.cm-select {
-  width: 100%;
-}
-
-.col-option {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.1rem 0;
-}
-
-.col-option-name {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.col-badge {
-  font-size: 0.65rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
-  background: rgba(34, 211, 238, 0.12);
-  color: var(--cyan-400);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.col-option-stats {
-  display: flex;
-  gap: 0.75rem;
-  font-size: 0.7rem;
-  color: var(--text-muted);
-}
-
-.col-option-stats i {
-  margin-right: 0.2rem;
-  font-size: 0.65rem;
-}
-
-.placeholder {
-  color: var(--text-muted);
-}
-
-/* Lista */
-.cm-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  max-height: 240px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
-.col-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.75rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-card);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  gap: 0.5rem;
-}
-
-.col-row:hover {
-  background: var(--bg-card-hover);
-  border-color: rgba(34, 211, 238, 0.15);
-}
-
-.col-row.active {
-  border-color: rgba(34, 211, 238, 0.35);
-  background: rgba(34, 211, 238, 0.05);
-}
-
-.col-row-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.col-row-name {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.col-row-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.col-row-icon {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  transition: color 0.15s;
-}
-
-.icon-active {
-  color: var(--cyan-400);
-}
-
-.col-default-badge {
-  font-size: 0.6rem !important;
-}
-
-.col-row-desc {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.col-row-stats {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.1rem;
-}
-
-.stat-chip {
-  font-size: 0.68rem;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.stat-chip.vectors {
-  color: var(--violet-400);
-}
-
-.stat-chip i {
-  font-size: 0.6rem;
-}
-
-.col-delete-btn {
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.col-row:hover .col-delete-btn {
-  opacity: 1;
-}
-
-/* Empty */
-.cm-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 1rem;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
-
-.cm-empty i {
-  font-size: 1.5rem;
-  opacity: 0.4;
-}
-
-/* Refresh */
-.cm-refresh {
-  align-self: flex-end;
-  font-size: 0.75rem;
-}
-
-/* Diálogo */
-.create-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  padding: 0.5rem 0;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.field-label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.required {
-  color: var(--error);
-  margin-left: 0.1rem;
-}
-
-.optional {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-weight: 400;
-  margin-left: 0.25rem;
-}
-
-.field-input {
-  width: 100%;
-}
-
-.field-hint {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-}
-
-.field-error {
-  font-size: 0.7rem;
-  color: var(--error);
-}
-</style>

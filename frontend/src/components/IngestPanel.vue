@@ -27,31 +27,31 @@ async function handleIngest(force = false) {
 </script>
 
 <template>
-  <div class="ingest-panel glass-card">
-    <div class="panel-header">
-      <i class="pi pi-bolt" />
+  <div class="p-5 flex flex-col gap-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-200 hover:bg-white/10 hover:border-cape-cod-600/30">
+    <div class="flex items-center gap-2.5 text-sm font-semibold text-cape-cod-400 uppercase tracking-wide flex-wrap">
+      <i class="pi pi-bolt text-cape-cod-300 text-base" />
       <h3>Ingestión</h3>
-      <span v-if="collectionStore.activeCollection" class="col-chip">
-        <i class="pi pi-th-large" /> {{ collectionStore.activeCollection }}
+      <span v-if="collectionStore.activeCollection" class="ml-auto flex items-center gap-1 text-[0.65rem] py-0.5 px-2 rounded-md bg-cape-cod-400/10 border border-cape-cod-400/20 text-cape-cod-300 font-medium tracking-wide">
+        <i class="pi pi-th-large text-[0.6rem] text-cape-cod-300" /> {{ collectionStore.activeCollection }}
       </span>
     </div>
 
-    <p class="panel-description">
+    <p class="text-[0.8125rem] text-cape-cod-500 leading-relaxed">
       Procesa los documentos subidos, genera summaries con Gemini y los embeddea en Qdrant.
     </p>
 
-    <div class="ingest-actions">
+    <div class="flex flex-col gap-2">
       <Button
         label="Iniciar Ingestión"
         icon="pi pi-play"
         :loading="loading"
         @click="handleIngest(false)"
-        class="ingest-btn"
+        class="bg-gradient-to-br from-cape-cod-600 to-cape-cod-800 !border-none !font-semibold hover:shadow-[0_0_20px_rgba(81,89,92,0.3)]"
       />
       <Button
         label="Forzar re-ingestión"
         icon="pi pi-refresh"
-        severity="warning"
+        severity="warn"
         outlined
         :loading="loading"
         @click="handleIngest(true)"
@@ -59,32 +59,32 @@ async function handleIngest(force = false) {
       />
     </div>
 
-    <ProgressBar v-if="loading" mode="indeterminate" class="progress-bar" />
+    <ProgressBar v-if="loading" mode="indeterminate" class="!h-1 !rounded-sm" />
 
     <ProgressBar
       v-if="ingestStatus.status === 'running' && ingestStatus.total_docs"
       :value="Math.round((ingestStatus.processed_docs ?? 0) / (ingestStatus.total_docs ?? 1) * 100)"
-      class="ingest-progress"
+      class="!h-1.5 !rounded-full"
     />
-    <span v-if="ingestStatus.total_docs" class="progress-label">
+    <span v-if="ingestStatus.total_docs" class="text-[0.725rem] text-cape-cod-500 text-right">
       {{ ingestStatus.processed_docs ?? 0 }} / {{ ingestStatus.total_docs }} documentos
     </span>
 
-    <Message v-if="message && !loading" severity="info" :closable="false" class="msg">
-      <i class="pi pi-info-circle" /> {{ message }}
+    <Message v-if="message && !loading" severity="info" :closable="false" class="text-[0.8125rem]">
+      <i class="pi pi-info-circle mr-1" /> {{ message }}
     </Message>
 
-    <div class="ingest-info">
-      <div class="info-item">
-        <i class="pi pi-brain" />
+    <div class="flex flex-col gap-1.5 pt-2 border-t border-white/10">
+      <div class="flex items-center gap-2 text-xs text-cape-cod-500">
+        <i class="pi pi-brain text-cape-cod-400 text-xs w-3.5" />
         <span>LlamaIndex + Gemini Flash</span>
       </div>
-      <div class="info-item">
-        <i class="pi pi-server" />
+      <div class="flex items-center gap-2 text-xs text-cape-cod-500">
+        <i class="pi pi-server text-cape-cod-400 text-xs w-3.5" />
         <span>Vector Store: Qdrant</span>
       </div>
-      <div class="info-item">
-        <i class="pi pi-sliders-h" />
+      <div class="flex items-center gap-2 text-xs text-cape-cod-500">
+        <i class="pi pi-sliders-h text-cape-cod-400 text-xs w-3.5" />
         <span>Chunk: 512 tokens · Overlap: 64</span>
       </div>
     </div>
@@ -92,118 +92,8 @@ async function handleIngest(force = false) {
 </template>
 
 <style scoped>
-.ingest-panel {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  flex-wrap: wrap;
-}
-
-.panel-header i {
-  color: var(--violet-400);
-  font-size: 1rem;
-}
-
-.col-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.65rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 6px;
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  color: var(--violet-400);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  margin-left: auto;
-}
-
-.col-chip i {
-  font-size: 0.6rem;
-  color: var(--violet-400);
-}
-
-.panel-description {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.ingest-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.ingest-btn {
-  background: linear-gradient(135deg, var(--cyan-600), var(--violet-600)) !important;
-  border: none !important;
-  font-weight: 600 !important;
-}
-
-.ingest-btn:hover {
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3) !important;
-}
-
-.progress-bar {
-  height: 4px !important;
-  border-radius: 2px !important;
-}
-
-.msg {
-  font-size: 0.8125rem;
-}
-
-/* Info badges */
-.ingest-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.info-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.info-item i {
-  color: var(--violet-400);
-  font-size: 0.75rem;
-  width: 14px;
-}
-
-.ingest-progress {
-  height: 6px !important;
+:deep(.p-progressbar-value) {
+  background: var(--p-primary-400) !important;
   border-radius: 9999px !important;
-}
-
-:deep(.ingest-progress .p-progressbar-value) {
-  background: var(--cyan-400) !important;
-  border-radius: 9999px !important;
-}
-
-.progress-label {
-  font-size: 0.725rem;
-  color: var(--text-muted);
-  text-align: right;
 }
 </style>

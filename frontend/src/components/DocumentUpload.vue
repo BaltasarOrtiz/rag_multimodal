@@ -55,12 +55,12 @@ function formatSize(bytes: number) {
 </script>
 
 <template>
-  <div class="upload-panel glass-card">
-    <div class="panel-header">
-      <i class="pi pi-cloud-upload" />
+  <div class="p-5 flex flex-col gap-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-200 hover:bg-white/10 hover:border-cape-cod-600/30">
+    <div class="flex items-center gap-2.5 text-sm font-semibold text-cape-cod-400 uppercase tracking-wide flex-wrap">
+      <i class="pi pi-cloud-upload text-cape-cod-400 text-base" />
       <h3>Documentos</h3>
-      <span v-if="collectionStore.activeCollection" class="col-chip">
-        <i class="pi pi-th-large" /> {{ collectionStore.activeCollection }}
+      <span v-if="collectionStore.activeCollection" class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[0.7rem] font-semibold text-cape-cod-400 bg-cape-cod-400/10 border border-cape-cod-400/25 normal-case tracking-normal">
+        <i class="pi pi-th-large text-[0.6rem] text-cape-cod-400" /> {{ collectionStore.activeCollection }}
       </span>
     </div>
 
@@ -74,30 +74,30 @@ function formatSize(bytes: number) {
       custom-upload
       @select="onFileSelect"
       :pt="{
-        root: { class: 'file-upload-root' },
-        buttonbar: { class: 'file-upload-bar' },
-        content: { class: 'file-upload-content' },
+        root: { class: 'w-full !bg-transparent !border !border-dashed !border-white/10 !rounded-xl transition-colors duration-200 hover:!border-cape-cod-500' },
+        buttonbar: { class: '!bg-transparent !border-none !border-b !border-white/10 !px-3.5 !py-2.5' },
+        content: { class: '!p-0' },
       }"
     >
       <template #empty>
-        <div class="drop-zone">
-          <i class="pi pi-file-arrow-up drop-icon" />
-          <p class="drop-text">Arrastrá PDFs, imágenes o texto</p>
-          <p class="drop-hint">Máx. 50 MB por archivo</p>
+        <div class="flex flex-col items-center gap-2 p-8 text-cape-cod-500">
+          <i class="pi pi-file-arrow-up text-4xl text-cape-cod-500 opacity-60" />
+          <p class="text-[0.875rem] font-medium text-cape-cod-400">Arrastrá PDFs, imágenes o texto</p>
+          <p class="text-xs text-cape-cod-500">Máx. 50 MB por archivo</p>
         </div>
       </template>
     </FileUpload>
 
     <!-- Document list -->
-    <div v-if="documents.length" class="doc-list">
-      <p class="doc-list-title">
+    <div v-if="documents.length" class="flex flex-col gap-1.5">
+      <p class="text-xs font-semibold text-cape-cod-500 uppercase tracking-wide mb-1 flex items-center gap-1.5">
         <i class="pi pi-folder-open" /> {{ documents.length }} documento{{ documents.length !== 1 ? 's' : '' }}
       </p>
-      <div v-for="doc in documents" :key="doc.name" class="doc-item">
-        <i class="pi pi-file-pdf" v-if="doc.ext === '.pdf'" />
-        <i class="pi pi-image" v-else-if="['.png','.jpg','.jpeg'].includes(doc.ext)" />
-        <i class="pi pi-file" v-else />
-        <span class="doc-name">{{ doc.name }}</span>
+      <div v-for="doc in documents" :key="doc.name" class="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-white/5 border border-white/10 text-[0.8125rem]">
+        <i class="pi pi-file-pdf text-cape-cod-400 text-[0.875rem] shrink-0" v-if="doc.ext === '.pdf'" />
+        <i class="pi pi-image text-cape-cod-400 text-[0.875rem] shrink-0" v-else-if="['.png','.jpg','.jpeg'].includes(doc.ext)" />
+        <i class="pi pi-file text-cape-cod-400 text-[0.875rem] shrink-0" v-else />
+        <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-cape-cod-400">{{ doc.name }}</span>
         <Tag :value="formatSize(doc.size)" severity="secondary" rounded />
         <Button
           icon="pi pi-trash"
@@ -105,7 +105,7 @@ function formatSize(bytes: number) {
           rounded
           size="small"
           severity="danger"
-          class="delete-doc-btn"
+          class=""
           :loading="deletingDoc === doc.name"
           :disabled="deletingDoc !== null"
           title="Eliminar documento"
@@ -114,7 +114,7 @@ function formatSize(bytes: number) {
       </div>
     </div>
 
-    <div v-else-if="!loading" class="no-docs">
+    <div v-else-if="!loading" class="flex flex-col items-center gap-1.5 p-4 text-cape-cod-500 text-[0.8125rem]">
       <i class="pi pi-inbox" />
       <span>No hay documentos cargados</span>
     </div>
@@ -125,160 +125,10 @@ function formatSize(bytes: number) {
       severity="secondary"
       text
       size="small"
-      class="refresh-btn"
+      class="self-start !text-cape-cod-500 hover:!text-cape-cod-400"
       :loading="loading"
       @click="fetchDocuments"
     />
   </div>
 </template>
 
-<style scoped>
-.upload-panel {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.panel-header i {
-  color: var(--cyan-400);
-  font-size: 1rem;
-}
-
-.col-chip {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0;
-  background: rgba(34, 211, 238, 0.12);
-  color: var(--cyan-400);
-  border: 1px solid rgba(34, 211, 238, 0.25);
-}
-
-/* Drop zone */
-.drop-zone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 2rem 1rem;
-  color: var(--text-muted);
-}
-
-.drop-icon {
-  font-size: 2.5rem;
-  color: var(--cyan-500);
-  opacity: 0.6;
-}
-
-.drop-text {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.drop-hint {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-/* Doc list */
-.doc-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.doc-list-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.doc-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.625rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-subtle);
-  font-size: 0.8125rem;
-}
-
-.doc-item i {
-  color: var(--cyan-400);
-  font-size: 0.875rem;
-  flex-shrink: 0;
-}
-
-.doc-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
-}
-
-.no-docs {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 1rem;
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-}
-
-.refresh-btn {
-  align-self: flex-start;
-  color: var(--text-muted) !important;
-}
-
-/* FileUpload root styling */
-:deep(.file-upload-root) {
-  width: 100%;
-  background: transparent !important;
-  border: 1px dashed var(--border-subtle) !important;
-  border-radius: 12px !important;
-  transition: border-color 0.2s;
-}
-
-:deep(.file-upload-root:hover) {
-  border-color: var(--cyan-500) !important;
-}
-
-:deep(.file-upload-bar) {
-  background: transparent !important;
-  border: none !important;
-  border-bottom: 1px solid var(--border-subtle) !important;
-  padding: 0.625rem 0.875rem !important;
-}
-
-:deep(.file-upload-content) {
-  padding: 0 !important;
-}
-</style>

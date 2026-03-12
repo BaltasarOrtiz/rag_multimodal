@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, nextTick, watch, computed } from 'vue'
 import hljs from 'highlight.js'
 import { marked, type Tokens } from 'marked'
@@ -213,19 +213,20 @@ async function summarize() {
 }
 </script>
 
+
 <template>
-  <div class="chat-panel">
+  <div class="flex flex-col gap-4 h-full min-h-0">
 
     <!-- Header -->
-    <div class="chat-header glass-card">
-      <div class="header-left">
-        <i class="pi pi-comments" />
+    <div class="px-5 py-3.5 flex items-center justify-between gap-4 shrink-0 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-200 hover:bg-white/10 hover:border-cape-cod-600/30">
+      <div class="flex items-center gap-2.5">
+        <i class="pi pi-comments text-cape-cod-400 text-base" />
         <!-- Título editable -->
         <template v-if="editingTitle">
           <input
             id="conv-title-input"
             v-model="titleInputValue"
-            class="title-input"
+            class="bg-white/5 border border-cape-cod-400/40 rounded-md text-cape-cod-50 text-sm font-semibold px-2 py-0.5 outline-none max-w-60"
             @blur="confirmEditTitle"
             @keydown.enter="confirmEditTitle"
             @keydown.esc="editingTitle = false"
@@ -233,14 +234,14 @@ async function summarize() {
         </template>
         <template v-else>
           <span
-            class="conv-title"
+            class="text-sm font-semibold text-cape-cod-300 cursor-pointer max-w-60 whitespace-nowrap overflow-hidden text-ellipsis hover:text-cape-cod-400 transition-colors"
             :title="store.activeConversation?.title"
             @dblclick="startEditTitle"
           >
             {{ store.activeConversation?.title ?? 'Chat' }}
           </span>
         </template>
-        <span v-if="messages.length" class="msg-count">{{ messages.length }} mensajes</span>
+        <span v-if="messages.length" class="text-[0.7rem] text-cape-cod-400 bg-cape-cod-400/10 border border-cape-cod-400/20 rounded-full px-2 py-0.5">{{ messages.length }} mensajes</span>
       </div>
 
       <!-- Search toggle + input -->
@@ -249,8 +250,8 @@ async function summarize() {
         icon="pi pi-search"
         text
         size="small"
-        class="action-btn"
-        :class="{ 'search-active': showSearch }"
+        class="text-[0.8rem]! text-cape-cod-500! hover:text-cape-cod-400!"
+        :class="{ 'text-cape-cod-400!': showSearch }"
         title="Buscar en historial"
         @click="showSearch = !showSearch; if (!showSearch) searchQuery = ''"
       />
@@ -259,18 +260,18 @@ async function summarize() {
           v-if="showSearch"
           v-model="searchQuery"
           placeholder="Buscar en la conversación..."
-          class="search-input"
+          class="bg-white/5 border border-white/10 rounded-lg text-cape-cod-50 text-[0.8rem] px-2.5 py-1 outline-none w-45 focus:w-55 focus:border-cape-cod-400 transition-all duration-250"
           autofocus
         />
       </Transition>
-      <span v-if="searchQuery" class="search-results-count">
+      <span v-if="searchQuery" class="text-[0.68rem] text-cape-cod-400 bg-cape-cod-400/10 border border-cape-cod-400/20 rounded-full px-2 py-0.5 whitespace-nowrap">
         {{ filteredMessages.length }} resultado{{ filteredMessages.length !== 1 ? 's' : '' }}
       </span>
 
-      <div class="header-right">
-        <div class="topk-control">
-          <span class="topk-label">Top-K: <strong>{{ topK }}</strong></span>
-          <Slider v-model="topK" :min="1" :max="10" :step="1" class="topk-slider" />
+      <div class="flex items-center gap-3">
+        <div class="hidden md:flex items-center gap-3">
+          <span class="text-xs text-cape-cod-500 whitespace-nowrap">Top-K: <strong class="text-cape-cod-400">{{ topK }}</strong></span>
+          <Slider v-model="topK" :min="1" :max="10" :step="1" class="w-18" />
         </div>
         <!-- Resumir (B2) — solo visible con 4+ mensajes -->
         <Button
@@ -278,7 +279,7 @@ async function summarize() {
           icon="pi pi-list"
           text
           size="small"
-          class="action-btn"
+          class="text-[0.8rem]! text-cape-cod-500! hover:text-cape-cod-400!"
           title="Resumir conversación"
           :disabled="streaming || loading"
           @click="summarize()"
@@ -289,7 +290,7 @@ async function summarize() {
           icon="pi pi-download"
           text
           size="small"
-          class="action-btn"
+          class="text-[0.8rem]! text-cape-cod-500! hover:text-cape-cod-400!"
           title="Exportar Markdown"
           @click="exportMarkdown()"
         />
@@ -299,7 +300,7 @@ async function summarize() {
           icon="pi pi-code"
           text
           size="small"
-          class="action-btn"
+          class="text-[0.8rem]! text-cape-cod-500! hover:text-cape-cod-400!"
           title="Exportar HTML"
           @click="exportConversation('html')"
         />
@@ -307,14 +308,24 @@ async function summarize() {
     </div>
 
     <!-- File type filter -->
-    <div class="filter-bar glass-card">
+    <div class="px-5 py-1.5 shrink-0 flex items-center bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl">
       <SelectButton
         v-model="fileTypeFilter"
         :options="filterOptions"
         option-value="value"
         size="small"
         :disabled="streaming"
-        class="filter-select-btn"
+        :pt="{
+          root: { class: '!bg-transparent flex gap-1 flex-wrap' },
+          button: ({ context }: any) => ({
+            class: [
+              '!text-[0.72rem] !px-2.5 !py-1 !gap-1.5 !rounded-md border !transition-colors',
+              context.active
+                ? '!bg-cape-cod-400/10 !border-cape-cod-400/40 !text-cape-cod-400'
+                : '!bg-white/5 !border-white/10 !text-cape-cod-500 hover:!bg-white/10 hover:!text-cape-cod-300'
+            ]
+          })
+        }"
       >
         <template #option="slotProps">
           <i :class="slotProps.option.icon" />
@@ -324,78 +335,78 @@ async function summarize() {
     </div>
 
     <!-- Messages -->
-    <div class="messages-scroll" ref="scrollEl">
-      <div class="messages-container">
+    <div class="flex-1 overflow-y-auto min-h-0 custom-scrollbar" ref="scrollEl">
+      <div class="flex flex-col gap-5 py-4 px-2">
 
         <!-- Empty state -->
-        <div v-if="!messages.length && !streaming" class="empty-state">
-          <div class="empty-icon">
-            <i class="pi pi-sparkles" />
+        <div v-if="!messages.length && !streaming" class="flex flex-col items-center justify-center gap-3.5 py-12 px-6 text-center text-cape-cod-500">
+          <div class="w-14 h-14 rounded-full bg-linear-to-br from-cape-cod-400/10 to-cape-cod-600/10 border border-cape-cod-400/15 flex items-center justify-center">
+            <i class="pi pi-sparkles text-2xl text-cape-cod-400" />
           </div>
-          <h3>Comenzá la conversación</h3>
-          <p>El RAG buscará en tus documentos y responderá con contexto de múltiples turnos.</p>
-          <div class="hints">
-            <span class="hint-chip"><i class="pi pi-history" /> Memoria de conversación</span>
-            <span class="hint-chip"><i class="pi pi-bolt" /> Streaming en tiempo real</span>
-            <span class="hint-chip"><i class="pi pi-file-edit" /> Markdown renderizado</span>
+          <h3 class="m-0 text-lg font-semibold text-cape-cod-300">Comenzá la conversación</h3>
+          <p class="m-0 text-sm max-w-104 leading-relaxed">El RAG buscará en tus documentos y responderá con contexto de múltiples turnos.</p>
+          <div class="flex flex-wrap gap-2 justify-center mt-1">
+            <span class="flex items-center gap-1.5 text-[0.72rem] px-2.5 py-1 bg-cape-cod-600/10 border border-cape-cod-600/20 rounded-full text-cape-cod-400"><i class="pi pi-history" /> Memoria de conversación</span>
+            <span class="flex items-center gap-1.5 text-[0.72rem] px-2.5 py-1 bg-cape-cod-600/10 border border-cape-cod-600/20 rounded-full text-cape-cod-400"><i class="pi pi-bolt" /> Streaming en tiempo real</span>
+            <span class="flex items-center gap-1.5 text-[0.72rem] px-2.5 py-1 bg-cape-cod-600/10 border border-cape-cod-600/20 rounded-full text-cape-cod-400"><i class="pi pi-file-edit" /> Markdown renderizado</span>
           </div>
         </div>
 
         <!-- Message bubbles -->
         <template v-for="msg in filteredMessages" :key="msg.id">
           <!-- User message -->
-          <div v-if="msg.role === 'user'" class="message-row user-row">
-            <div class="bubble user-bubble" :class="{ 'editing-bubble': editingMsgId === msg.id }">
+          <div v-if="msg.role === 'user'" class="flex items-start gap-3 flex-row-reverse animate-fade-up">
+            <div class="max-w-[78%] p-3.5 rounded-2xl text-[0.9375rem] leading-relaxed bg-linear-to-br from-cape-cod-400/10 to-cape-cod-600/5 border border-cape-cod-400/20 rounded-tr-md group relative" :class="{ 'min-w-70': editingMsgId === msg.id }">
               <template v-if="editingMsgId === msg.id">
                 <Textarea
                   v-model="editingContent"
                   :rows="3"
-                  class="edit-textarea"
+                  class="w-full bg-white/5 border border-cape-cod-400/30 rounded-lg text-cape-cod-50 text-[0.9375rem] p-2 outline-none resize-none"
                   auto-resize
                   @keydown.ctrl.enter="confirmEditMessage(msg)"
                 />
-                <div class="edit-actions">
-                  <Button label="Enviar" icon="pi pi-send" size="small" class="edit-send-btn"
+                <div class="flex gap-2 justify-end mt-2">
+                  <Button label="Enviar" icon="pi pi-send" size="small" class="bg-cape-cod-400/15! text-cape-cod-400! border-cape-cod-400/30!"
                     :disabled="!editingContent.trim()"
                     @click="confirmEditMessage(msg)" />
                   <Button label="Cancelar" text size="small" @click="editingMsgId = null" />
                 </div>
               </template>
               <template v-else>
-                <p class="user-text">{{ msg.content }}</p>
-                <div class="user-actions">
+                <p class="m-0 text-cape-cod-50 whitespace-pre-wrap">{{ msg.content }}</p>
+                <div class="hidden group-hover:flex justify-end mt-1.5 absolute -bottom-5 right-0 bg-cape-cod-900 rounded border border-white/10">
                   <Button
                     icon="pi pi-pencil"
                     text rounded size="small"
-                    class="action-icon"
+                    class="text-cape-cod-500! hover:text-cape-cod-300! hover:bg-white/5! w-7! h-7! p-0!"
                     title="Editar mensaje"
                     @click="startEditMessage(msg)"
                   />
                 </div>
               </template>
             </div>
-            <div class="avatar user-avatar">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm bg-linear-to-br from-cape-cod-500 to-cape-cod-700 text-white">
               <i class="pi pi-user" />
             </div>
           </div>
 
           <!-- Assistant message -->
-          <div v-else class="message-row assistant-row">
-            <div class="avatar assistant-avatar">
+          <div v-else class="flex items-start gap-3 animate-fade-up">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm bg-linear-to-br from-cape-cod-700 to-cape-cod-900 text-white border border-cape-cod-600/50 shadow-md">
               <i class="pi pi-sparkles" />
             </div>
             <div
-              class="bubble assistant-bubble"
-              :class="{ 'pinned-msg': msg.pinned }"
+              class="max-w-[78%] p-3.5 rounded-2xl text-[0.9375rem] leading-relaxed bg-white/5 border border-white/10 rounded-tl-md group"
+              :class="{ 'border-l-2! border-yellow-400!': msg.pinned }"
             >
               <div class="markdown-body" v-html="renderMarkdown(msg.content)" />
               <SourcesDisplay v-if="msg.sources?.length" :sources="msg.sources" />
-              <div class="message-actions">
-                <span v-if="msg.nodes_retrieved" class="nodes-badge">{{ msg.nodes_retrieved }} nodos</span>
+              <div class="flex flex-wrap items-center gap-1 mt-2.5 pt-2 border-t border-white/10 opacity-60 group-hover:opacity-100 transition-opacity">
+                <span v-if="msg.nodes_retrieved" class="text-[0.7rem] text-cape-cod-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5 mr-auto">{{ msg.nodes_retrieved }} nodos</span>
                 <Button
                   icon="pi pi-copy"
                   text rounded size="small"
-                  class="action-icon"
+                  class="text-cape-cod-500! hover:text-cape-cod-300! hover:bg-white/5! w-7! h-7! p-0!"
                   title="Copiar respuesta"
                   @click="copyText(msg.content)"
                 />
@@ -403,7 +414,7 @@ async function summarize() {
                 <Button
                   icon="pi pi-refresh"
                   text rounded size="small"
-                  class="action-icon"
+                  class="text-cape-cod-500! hover:text-cape-cod-300! hover:bg-white/5! w-7! h-7! p-0!"
                   title="Regenerar respuesta"
                   :disabled="streaming || loading"
                   @click="regenerate(msg)"
@@ -412,21 +423,24 @@ async function summarize() {
                 <Button
                   icon="pi pi-bookmark"
                   text rounded size="small"
-                  :class="['action-icon', { 'msg-pinned': msg.pinned }]"
+                  class="w-7! h-7! p-0! hover:bg-white/5!"
+                  :class="[msg.pinned ? 'text-yellow-400!' : 'text-cape-cod-500! hover:text-cape-cod-300!']"
                   title="Pinear mensaje"
                   @click="toggleMessagePin(msg)"
                 />
                 <Button
                   icon="pi pi-thumbs-up"
                   text rounded size="small"
-                  :class="['action-icon', { 'feedback-active-up': msg.rating === 1 }]"
+                  class="w-7! h-7! p-0! hover:bg-white/5!"
+                  :class="[msg.rating === 1 ? 'text-green-400!' : 'text-cape-cod-500! hover:text-cape-cod-300!']"
                   title="Buena respuesta"
                   @click="handleFeedback(msg, 1)"
                 />
                 <Button
                   icon="pi pi-thumbs-down"
                   text rounded size="small"
-                  :class="['action-icon', { 'feedback-active-down': msg.rating === -1 }]"
+                  class="w-7! h-7! p-0! hover:bg-white/5!"
+                  :class="[msg.rating === -1 ? 'text-red-400!' : 'text-cape-cod-500! hover:text-cape-cod-300!']"
                   title="Mala respuesta"
                   @click="handleFeedback(msg, -1)"
                 />
@@ -436,22 +450,22 @@ async function summarize() {
         </template>
 
         <!-- Streaming bubble -->
-        <div v-if="streaming" class="message-row assistant-row">
-          <div class="avatar assistant-avatar">
+        <div v-if="streaming" class="flex items-start gap-3 animate-fade-up">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm bg-linear-to-br from-cape-cod-700 to-cape-cod-900 text-white border border-cape-cod-600/50 shadow-md">
             <i class="pi pi-sparkles" />
           </div>
-          <div class="bubble assistant-bubble streaming-bubble">
+          <div class="max-w-[78%] p-3.5 rounded-2xl text-[0.9375rem] leading-relaxed bg-white/5 border border-cape-cod-400/30 rounded-tl-md">
             <div class="markdown-body" v-html="renderMarkdown(streamingText || '...')" />
             <span class="cursor-blink">▋</span>
           </div>
         </div>
 
         <!-- Thinking indicator (before first token) -->
-        <div v-else-if="loading" class="message-row assistant-row">
-          <div class="avatar assistant-avatar">
+        <div v-else-if="loading" class="flex items-start gap-3 animate-fade-up">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm bg-linear-to-br from-cape-cod-700 to-cape-cod-900 text-white border border-cape-cod-600/50 shadow-md">
             <i class="pi pi-sparkles" />
           </div>
-          <div class="bubble assistant-bubble thinking-bubble">
+          <div class="max-w-[78%] p-4 rounded-2xl text-[0.9375rem] leading-relaxed bg-white/5 border border-white/10 rounded-tl-md w-64">
             <Skeleton height="0.875rem" width="60%" class="mb-2" />
             <Skeleton height="0.875rem" class="mb-2" />
             <Skeleton height="0.875rem" width="80%" />
@@ -459,14 +473,14 @@ async function summarize() {
         </div>
 
         <!-- Error -->
-        <div v-if="error" class="error-toast animate-in">
-          <div class="error-header">
-            <i :class="errorIcon(error.error_code)" class="error-icon" />
-            <span class="error-badge">{{ errorLabel(error.error_code) }}</span>
+        <div v-if="error" class="flex flex-col gap-1.5 px-4 py-3.5 mt-2 bg-red-500/10 border border-red-500/20 border-l-[3px] border-l-red-400! rounded-lg text-[0.875rem] animate-fade-up">
+          <div class="flex items-center gap-2">
+            <i :class="errorIcon(error.error_code)" class="text-red-400 text-base shrink-0" />
+            <span class="text-[0.65rem] font-bold tracking-[0.07em] text-red-400 bg-red-400/15 px-[0.45rem] py-[0.1rem] rounded uppercase">{{ errorLabel(error.error_code) }}</span>
           </div>
-          <p class="error-detail">{{ error.detail }}</p>
-          <p v-if="error.suggestion" class="error-suggestion">
-            <i class="pi pi-lightbulb" /> {{ error.suggestion }}
+          <p class="m-0 text-red-300 leading-relaxed">{{ error.detail }}</p>
+          <p v-if="error.suggestion" class="m-0 text-cape-cod-400 text-[0.8rem] flex items-start gap-1.5 leading-relaxed mt-1">
+            <i class="pi pi-lightbulb text-yellow-400 text-[0.8rem] mt-[0.15rem] shrink-0" /> {{ error.suggestion }}
           </p>
         </div>
 
@@ -475,27 +489,27 @@ async function summarize() {
 
     <!-- Copy toast -->
     <Transition name="toast">
-      <div v-if="copyToast" class="copy-toast">
+      <div v-if="copyToast" class="fixed bottom-24 right-8 flex items-center gap-2 bg-green-400/15 border border-green-400/30 rounded-full py-1.5 px-4 text-[0.8125rem] text-green-400 z-50 pointer-events-none">
         <i class="pi pi-check-circle" /> {{ copyToast }}
       </div>
     </Transition>
 
     <!-- Input -->
-    <div class="input-area glass-card">
+    <div class="p-5 flex flex-col gap-3 shrink-0 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-200 hover:bg-white/10 hover:border-cape-cod-600/30">
       <Textarea
         v-model="inputText"
         placeholder="Ej: Explicame el algoritmo de Dijkstra con el ejemplo del apunte... (Ctrl+Enter para enviar)"
         :rows="3"
-        class="chat-textarea"
+        class="w-full bg-white/5! border border-white/10! rounded-xl text-cape-cod-50 text-[0.9375rem] leading-relaxed transition-colors duration-200 resize-none hover:border-cape-cod-500! focus:border-cape-cod-400! focus:shadow-[0!_0_0_3px_rgba(160,168,171,0.15)]"
         :disabled="streaming"
         auto-resize
         @keydown="handleKeydown"
       />
-      <div class="input-footer">
-        <span class="hint">
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-cape-cod-500 hidden sm:flex items-center gap-1.5">
           <i class="pi pi-info-circle" /> Ctrl + Enter
         </span>
-        <span class="char-counter" :class="{ 'char-warn': charCount > CHAR_LIMIT * 0.85, 'char-limit': charCount >= CHAR_LIMIT }">
+        <span class="text-[0.72rem] text-cape-cod-500 transition-colors sm:ml-auto mr-4" :class="{ 'text-yellow-400': charCount > CHAR_LIMIT * 0.85, 'text-red-400 font-semibold': charCount >= CHAR_LIMIT }">
           {{ charCount }} / {{ CHAR_LIMIT }}
         </span>
         <Button
@@ -503,7 +517,7 @@ async function summarize() {
           icon="pi pi-send"
           :loading="loading || streaming"
           :disabled="!inputText.trim() || streaming"
-          class="send-btn"
+          class="bg-linear-to-br from-cape-cod-600 to-cape-cod-800 border-none! font-semibold! hover:opacity-90! hover:-translate-y-px transition-all px-5 py-2 rounded-lg! text-white"
           @click="handleSend"
         />
       </div>
@@ -511,694 +525,95 @@ async function summarize() {
 
   </div>
 </template>
+
 <style scoped>
-.chat-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  height: 100%;
-  min-height: 0;
-}
-
-/* Header */
-.chat-header {
-  padding: 0.875rem 1.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-shrink: 0;
-}
-
-/* Filter bar */
-.filter-bar {
-  padding: 0.4rem 1.25rem;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-}
-
-:deep(.filter-select-btn .p-selectbutton) {
-  background: transparent;
-  gap: 0.25rem;
-}
-
-:deep(.filter-select-btn .p-selectbutton .p-button) {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  padding: 0.25rem 0.625rem;
-  gap: 0.35rem;
-  border-radius: 6px;
-}
-
-:deep(.filter-select-btn .p-selectbutton .p-button.p-highlight) {
-  background: rgba(34, 211, 238, 0.12);
-  border-color: rgba(34, 211, 238, 0.4);
-  color: var(--cyan-400);
-}
-
-:deep(.filter-select-btn .p-selectbutton .p-button:hover:not(.p-highlight):not(:disabled)) {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--text-secondary);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-.header-left i {
-  color: var(--cyan-400);
-  font-size: 1rem;
-}
-
-/* Título editable */
-.conv-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  max-width: 240px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.conv-title:hover {
-  color: var(--cyan-400);
-}
-
-.title-input {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(34, 211, 238, 0.4);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: 0.125rem 0.5rem;
-  outline: none;
-  max-width: 240px;
-}
-
-.msg-count {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  background: rgba(34, 211, 238, 0.1);
-  border: 1px solid rgba(34, 211, 238, 0.2);
-  border-radius: 9999px;
-  padding: 0.125rem 0.5rem;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.topk-control {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.topk-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.topk-label strong {
-  color: var(--cyan-400);
-}
-
-.topk-slider {
-  width: 72px;
-}
-
-.action-btn {
-  font-size: 0.8rem !important;
-  color: var(--text-muted) !important;
-}
-
-.action-btn:hover {
-  color: var(--cyan-400) !important;
-}
-
-/* Messages scroll */
-.messages-scroll {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-subtle) transparent;
-}
-
-.messages-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.messages-scroll::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: 2px;
-}
-
-.messages-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  padding: 1rem 0.5rem;
-}
-
-/* Empty state */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.875rem;
-  padding: 3rem 1.5rem;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.empty-icon {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(34,211,238,0.1), rgba(139,92,246,0.1));
-  border: 1px solid rgba(34,211,238,0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.empty-icon i {
-  font-size: 1.5rem;
-  color: var(--cyan-400);
-}
-
-.empty-state h3 {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.empty-state p {
-  margin: 0;
-  font-size: 0.875rem;
-  max-width: 26rem;
-  line-height: 1.6;
-}
-
-.hints {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-  margin-top: 0.25rem;
-}
-
-.hint-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  padding: 0.25rem 0.625rem;
-  background: rgba(139, 92, 246, 0.07);
-  border: 1px solid rgba(139, 92, 246, 0.18);
-  border-radius: 9999px;
-  color: var(--violet-400);
-}
-
-/* Message rows */
-.message-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  animation: fadeUp 0.2s ease;
-}
-
-.user-row {
-  flex-direction: row-reverse;
-}
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Avatars */
-.avatar {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 0.875rem;
-}
-
-.user-avatar {
-  background: linear-gradient(135deg, var(--cyan-700), var(--cyan-500));
-  color: #fff;
-}
-
-.assistant-avatar {
-  background: linear-gradient(135deg, var(--violet-700), var(--violet-500));
-  color: #fff;
-}
-
-/* Bubbles */
-.bubble {
-  max-width: 78%;
-  padding: 0.875rem 1.125rem;
-  border-radius: 1rem;
-  font-size: 0.9375rem;
-  line-height: 1.65;
-}
-
-.user-bubble {
-  background: linear-gradient(135deg, rgba(34,211,238,0.12), rgba(34,211,238,0.06));
-  border: 1px solid rgba(34, 211, 238, 0.2);
-  border-top-right-radius: 0.25rem;
-}
-
-.user-text {
-  margin: 0;
-  color: var(--text-primary);
-  white-space: pre-wrap;
-}
-
-.assistant-bubble {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-subtle);
-  border-top-left-radius: 0.25rem;
-}
-
-.streaming-bubble {
-  border-color: rgba(139, 92, 246, 0.3);
-}
-
-.thinking-bubble {
-  padding: 1rem 1.25rem;
-}
-
-/* Markdown body */
+/* Markdown body styling inside Tailwind context */
 .markdown-body {
-  color: var(--text-primary);
+  color: #fafafa;
   word-break: break-word;
 }
 
-.markdown-body :deep(p) {
-  margin: 0 0 0.75em;
-}
+.markdown-body :deep(p) { margin: 0 0 0.75em; }
+.markdown-body :deep(p:last-child) { margin-bottom: 0; }
 
-.markdown-body :deep(p:last-child) {
-  margin-bottom: 0;
+.markdown-body :deep(h1), .markdown-body :deep(h2), .markdown-body :deep(h3) {
+  margin: 1em 0 0.5em; font-weight: 600; color: #fafafa; line-height: 1.3;
 }
-
-.markdown-body :deep(h1),
-.markdown-body :deep(h2),
-.markdown-body :deep(h3) {
-  margin: 1em 0 0.5em;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.3;
-}
-
 .markdown-body :deep(h1) { font-size: 1.2em; }
 .markdown-body :deep(h2) { font-size: 1.1em; }
 .markdown-body :deep(h3) { font-size: 1em; }
 
-.markdown-body :deep(ul),
-.markdown-body :deep(ol) {
-  padding-left: 1.5em;
-  margin: 0.5em 0;
+.markdown-body :deep(ul), .markdown-body :deep(ol) {
+  padding-left: 1.5em; margin: 0.5em 0;
 }
-
-.markdown-body :deep(li) {
-  margin-bottom: 0.25em;
-}
+.markdown-body :deep(li) { margin-bottom: 0.25em; }
 
 .markdown-body :deep(code) {
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-radius: 4px;
-  padding: 0.1em 0.4em;
-  font-size: 0.875em;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
-  color: var(--violet-300, #c4b5fd);
+  background: rgba(160, 168, 171, 0.15);
+  border: 1px solid rgba(160, 168, 171, 0.2);
+  border-radius: 4px; padding: 0.1em 0.4em; font-size: 0.875em;
+  font-family: 'Fira Code', 'Cascadia Code', monospace; color: #a0a8ab;
 }
 
 .markdown-body :deep(pre) {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 1em;
-  overflow-x: auto;
-  margin: 0.75em 0;
+  background: rgba(9, 11, 11, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px; padding: 1em; overflow-x: auto; margin: 0.75em 0;
 }
-
 .markdown-body :deep(pre code) {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 0.85em;
-  color: var(--text-primary);
+  background: none; border: none; padding: 0; font-size: 0.85em; color: #fafafa;
+}
+.markdown-body :deep(pre code.hljs) {
+  background: transparent; padding: 0; font-size: 0.85em;
 }
 
 .markdown-body :deep(table) {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0.75em 0;
-  font-size: 0.875em;
+  width: 100%; border-collapse: collapse; margin: 0.75em 0; font-size: 0.875em;
 }
-
-.markdown-body :deep(th),
-.markdown-body :deep(td) {
-  padding: 0.5em 0.75em;
-  border: 1px solid var(--border-subtle);
-  text-align: left;
+.markdown-body :deep(th), .markdown-body :deep(td) {
+  padding: 0.5em 0.75em; border: 1px solid rgba(255, 255, 255, 0.1); text-align: left;
 }
-
 .markdown-body :deep(th) {
-  background: rgba(255,255,255,0.04);
-  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04); font-weight: 600;
 }
 
 .markdown-body :deep(blockquote) {
-  border-left: 3px solid var(--cyan-500);
-  padding-left: 1em;
-  color: var(--text-muted);
-  margin: 0.75em 0;
+  border-left: 3px solid #70787b; padding-left: 1em; color: #a0a8ab; margin: 0.75em 0;
 }
 
-/* Streaming cursor */
+/* Animations and Utilities */
 .cursor-blink {
-  display: inline-block;
-  color: var(--violet-400);
-  animation: blink 0.8s step-end infinite;
-  font-size: 1em;
-  vertical-align: text-bottom;
-  margin-left: 1px;
+  display: inline-block; color: #a0a8ab; animation: blink 0.8s step-end infinite;
+  font-size: 1em; vertical-align: text-bottom; margin-left: 1px;
 }
-
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50%        { opacity: 0; }
 }
-
-/* Message actions */
-.message-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-top: 0.625rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border-subtle);
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
-.nodes-badge {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border-subtle);
-  border-radius: 9999px;
-  padding: 0.1rem 0.5rem;
-  margin-right: auto;
+.animate-fade-up {
+  animation: fade-up 0.2s ease forwards;
 }
-
-.action-icon {
-  color: var(--text-muted) !important;
-  width: 1.75rem !important;
-  height: 1.75rem !important;
-  padding: 0 !important;
-}
-
-.action-icon:hover {
-  color: var(--text-secondary) !important;
-  background: rgba(255,255,255,0.06) !important;
-}
-
-.feedback-active-up {
-  color: #4ade80 !important;
-}
-
-.feedback-active-down {
-  color: #f87171 !important;
-}
-
-/* Pin de mensaje (B1) */
-.msg-pinned {
-  color: #facc15 !important;
-}
-
-.pinned-msg {
-  border-left: 2px solid #facc15 !important;
-}
-
-/* Acciones de mensaje de usuario */
-.user-bubble {
-  position: relative;
-}
-
-.user-actions {
-  display: none;
-  justify-content: flex-end;
-  margin-top: 0.375rem;
-}
-
-.user-bubble:hover .user-actions {
-  display: flex;
-}
-
-/* Edición de mensaje */
-.editing-bubble {
-  min-width: 280px;
-}
-
-.edit-textarea {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(34, 211, 238, 0.3);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-  padding: 0.5rem;
-  outline: none;
-  resize: none;
-}
-
-.edit-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-  margin-top: 0.5rem;
-}
-
-.edit-send-btn {
-  background: rgba(34, 211, 238, 0.15) !important;
-  color: var(--cyan-400) !important;
-  border: 1px solid rgba(34, 211, 238, 0.3) !important;
-}
-
-/* Error */
-.error-toast {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.875rem 1rem;
-  background: rgba(239, 68, 68, 0.07);
-  border: 1px solid rgba(239, 68, 68, 0.22);
-  border-left: 3px solid #f87171;
-  border-radius: 10px;
-  font-size: 0.875rem;
-}
-
-.error-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.error-icon {
-  color: #f87171;
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.error-badge {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.15);
-  padding: 0.1rem 0.45rem;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-.error-detail {
-  margin: 0;
-  color: #fca5a5;
-  line-height: 1.5;
-}
-
-.error-suggestion {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.35rem;
-  line-height: 1.4;
-}
-
-.error-suggestion .pi {
-  color: #fbbf24;
-  font-size: 0.8rem;
-  margin-top: 0.15rem;
-  flex-shrink: 0;
-}
-
-/* Copy toast */
-.copy-toast {
-  position: fixed;
-  bottom: 6rem;
-  right: 2rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(74, 222, 128, 0.15);
-  border: 1px solid rgba(74, 222, 128, 0.3);
-  border-radius: 9999px;
-  padding: 0.4rem 1rem;
-  font-size: 0.8125rem;
-  color: #4ade80;
-  z-index: 100;
-  pointer-events: none;
-}
-
 .toast-enter-active, .toast-leave-active {
   transition: opacity 0.25s, transform 0.25s;
 }
-
 .toast-enter-from, .toast-leave-to {
-  opacity: 0;
-  transform: translateY(6px);
-}
-
-/* Input area */
-.input-area {
-  padding: 1rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-
-.chat-textarea {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid var(--border-subtle) !important;
-  border-radius: 10px !important;
-  color: var(--text-primary) !important;
-  font-size: 0.9375rem !important;
-  line-height: 1.6 !important;
-  transition: border-color 0.2s;
-  resize: none !important;
-}
-
-.chat-textarea:focus {
-  border-color: var(--cyan-500) !important;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.08) !important;
-}
-
-.input-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.hint {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.send-btn {
-  background: linear-gradient(135deg, var(--cyan-600), var(--violet-600)) !important;
-  border: none !important;
-  color: #fff !important;
-  font-weight: 600 !important;
-  padding: 0.5rem 1.25rem !important;
-  border-radius: 8px !important;
-  transition: opacity 0.2s, transform 0.1s !important;
-}
-
-.send-btn:hover:not(:disabled) {
-  opacity: 0.9 !important;
-  transform: translateY(-1px) !important;
-}
-
-.animate-in {
-  animation: fadeUp 0.25s ease;
-}
-
-/* Char counter (Cambio 5) */
-.char-counter {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  transition: color 0.2s;
-}
-.char-warn  { color: #fbbf24; }
-.char-limit { color: #f87171; font-weight: 600; }
-
-/* highlight.js override (Cambio 6) */
-.markdown-body :deep(pre code.hljs) {
-  background: transparent;
-  padding: 0;
-  font-size: 0.85em;
-}
-
-/* Search (Cambio 7) */
-.search-input {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 0.8rem;
-  padding: 0.3rem 0.625rem;
-  outline: none;
-  width: 180px;
-  transition: border-color 0.2s, width 0.25s;
-}
-.search-input:focus {
-  border-color: var(--cyan-500);
-  width: 220px;
-}
-.search-active { color: var(--cyan-400) !important; }
-.search-results-count {
-  font-size: 0.68rem;
-  color: var(--cyan-400);
-  background: rgba(34,211,238,0.08);
-  border: 1px solid rgba(34,211,238,0.2);
-  border-radius: 9999px;
-  padding: 0.1rem 0.45rem;
-  white-space: nowrap;
+  opacity: 0; transform: translateY(6px);
 }
 .search-enter-active, .search-leave-active {
   transition: opacity 0.2s, width 0.25s;
 }
 .search-enter-from, .search-leave-to {
-  opacity: 0;
-  width: 0;
+  opacity: 0; width: 0;
+}
+.custom-scrollbar {
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1); border-radius: 2px;
 }
 </style>

@@ -122,25 +122,33 @@ function truncate(text: string, max = 28): string {
 }
 </script>
 
+
 <template>
-  <aside class="conv-sidebar" :class="{ 'conv-sidebar--collapsed': collapsed }">
+  <aside 
+    class="w-[260px] min-w-[260px] bg-black/40 border-r border-white/5 flex flex-col relative transition-all duration-300 ease-in-out shrink-0 z-[200] md:relative fixed top-16 md:top-0 bottom-0 left-0"
+    :class="{ 'w-10 min-w-[40px] md:w-10 md:min-w-[40px] -translate-x-[260px] md:translate-x-0': collapsed }"
+  >
     <!-- Toggle button siempre visible -->
-    <button class="sidebar-toggle" :title="collapsed ? 'Expandir' : 'Colapsar'" @click="collapsed = !collapsed">
+    <button 
+      class="absolute top-3 -right-3.5 z-10 w-7 h-7 rounded-full bg-cape-cod-900 border border-white/10 text-cape-cod-500 cursor-pointer flex items-center justify-center text-[0.625rem] transition-colors hover:text-cape-cod-300 hover:border-white/20 md:right-[-14px] right-[-40px] md:top-3 top-1/2 md:translate-y-0 -translate-y-1/2" 
+      :title="collapsed ? 'Expandir' : 'Colapsar'" 
+      @click="collapsed = !collapsed"
+    >
       <i :class="collapsed ? 'pi pi-chevron-right' : 'pi pi-chevron-left'" />
     </button>
 
     <!-- Contenido (oculto cuando collapsed) -->
-    <div class="sidebar-content">
+    <div class="flex-1 flex flex-col overflow-hidden transition-opacity duration-200" :class="{ 'opacity-0 pointer-events-none': collapsed }">
       <!-- Header -->
-      <div class="sidebar-header">
-        <span class="sidebar-title">CONVERSACIONES</span>
-        <div class="header-actions">
+      <div class="flex items-center justify-between px-3 pt-3 pb-2 shrink-0">
+        <span class="text-[0.625rem] font-semibold tracking-widest text-cape-cod-500 uppercase">Conversaciones</span>
+        <div class="flex gap-0.5">
           <Button
             icon="pi pi-plus"
             text
             rounded
             size="small"
-            class="icon-btn"
+            class="!text-cape-cod-500 !w-7 !h-7 !p-0 hover:!text-cape-cod-300"
             title="Nueva conversación"
             @click="store.createConversation()"
           />
@@ -149,7 +157,7 @@ function truncate(text: string, max = 28): string {
             text
             rounded
             size="small"
-            class="icon-btn"
+            class="!text-cape-cod-500 !w-7 !h-7 !p-0 hover:!text-cape-cod-300"
             title="Nueva carpeta"
             @click="showFolderInput = !showFolderInput"
           />
@@ -158,45 +166,49 @@ function truncate(text: string, max = 28): string {
 
       <!-- Crear carpeta inline -->
       <Transition name="slide-down">
-        <div v-if="showFolderInput" class="folder-create-form">
-          <div class="color-picker">
+        <div v-if="showFolderInput" class="px-3 py-2 border-b border-white/5 flex flex-col gap-2">
+          <div class="flex gap-1.5 flex-wrap">
             <button
               v-for="color in FOLDER_COLORS"
               :key="color"
-              class="color-dot"
-              :class="{ active: newFolderColor === color }"
+              class="w-4 h-4 rounded-full cursor-pointer border-2 p-0 transition-transform duration-150"
+              :class="{ 'border-white scale-125': newFolderColor === color, 'border-transparent': newFolderColor !== color }"
               :style="{ background: color }"
               @click="newFolderColor = color"
             />
           </div>
-          <div class="folder-name-row">
+          <div class="flex gap-1 items-center">
             <input
               v-model="newFolderName"
-              class="inline-input"
+              class="flex-1 bg-white/5 border border-white/10 rounded-md text-cape-cod-50 text-[0.8125rem] px-2 py-1 outline-none focus:border-cape-cod-400"
               placeholder="Nombre de carpeta"
               @keydown.enter="confirmCreateFolder"
               @keydown.esc="showFolderInput = false"
             />
-            <Button icon="pi pi-check" text rounded size="small" class="icon-btn confirm-btn" @click="confirmCreateFolder" />
+            <Button icon="pi pi-check" text rounded size="small" class="!text-green-400 !w-7 !h-7 !p-0" @click="confirmCreateFolder" />
           </div>
         </div>
       </Transition>
 
       <!-- Lista de conversaciones y carpetas -->
-      <div class="conv-list">
+      <div class="flex-1 overflow-y-auto py-1 custom-scrollbar">
 
         <!-- Conversaciones sin carpeta -->
         <template v-for="conv in noneConversations" :key="conv.id">
           <div
-            class="conv-item"
-            :class="{ active: store.activeId === conv.id }"
+            class="flex items-center gap-2 px-3 py-2 cursor-pointer border-l-2 transition-colors min-h-[36px] group"
+            :class="[
+              store.activeId === conv.id
+                ? 'bg-cape-cod-400/10 border-cape-cod-400'
+                : 'border-transparent hover:bg-white/5'
+            ]"
             @click="store.setActive(conv.id)"
           >
             <template v-if="renamingId === conv.id">
               <input
                 :id="`rename-input-${conv.id}`"
                 v-model="renameValue"
-                class="inline-input rename-input"
+                class="flex-1 min-w-0 bg-white/5 border border-cape-cod-400/50 rounded text-cape-cod-50 text-[0.8125rem] px-1.5 py-0.5 outline-none"
                 @blur="confirmRename(conv.id)"
                 @keydown.enter="confirmRename(conv.id)"
                 @keydown.esc="renamingId = null"
@@ -204,10 +216,10 @@ function truncate(text: string, max = 28): string {
               />
             </template>
             <template v-else>
-              <i class="pi pi-comments conv-icon" />
-              <span class="conv-title-text">{{ truncate(conv.title) }}</span>
-              <i v-if="conv.pinned" class="pi pi-bookmark pin-icon" />
-              <button class="context-btn" @click.stop="openContextMenu($event, conv.id)">
+              <i class="pi pi-comments text-[0.75rem] text-cape-cod-500 shrink-0" />
+              <span class="flex-1 text-[0.8125rem] whitespace-nowrap overflow-hidden text-ellipsis min-w-0" :class="store.activeId === conv.id ? 'text-cape-cod-300' : 'text-cape-cod-400'">{{ truncate(conv.title) }}</span>
+              <i v-if="conv.pinned" class="pi pi-bookmark text-[0.625rem] text-yellow-500 shrink-0" />
+              <button class="hidden group-hover:flex items-center justify-center p-1 rounded bg-transparent border-none text-cape-cod-500 hover:text-cape-cod-300 hover:bg-white/5 shrink-0 text-[0.75rem]" @click.stop="openContextMenu($event, conv.id)">
                 <i class="pi pi-ellipsis-v" />
               </button>
             </template>
@@ -217,12 +229,12 @@ function truncate(text: string, max = 28): string {
         <!-- Carpetas -->
         <template v-for="folder in store.folders" :key="folder.id">
           <!-- Header de carpeta -->
-          <div class="folder-header" @click="store.toggleFolderCollapsed(folder.id)">
-            <i class="pi pi-folder folder-icon" :style="{ color: folder.color }" />
+          <div class="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors hover:bg-white/5 group" @click="store.toggleFolderCollapsed(folder.id)">
+            <i class="pi pi-folder text-[0.875rem] shrink-0" :style="{ color: folder.color }" />
             <template v-if="renamingFolderId === folder.id">
               <input
                 v-model="renameFolderValue"
-                class="inline-input rename-input"
+                class="flex-1 min-w-0 bg-white/5 border border-cape-cod-400/50 rounded text-cape-cod-50 text-[0.8125rem] px-1.5 py-0.5 outline-none"
                 @blur="confirmRenameFolder(folder.id)"
                 @keydown.enter="confirmRenameFolder(folder.id)"
                 @keydown.esc="renamingFolderId = null"
@@ -230,32 +242,36 @@ function truncate(text: string, max = 28): string {
               />
             </template>
             <template v-else>
-              <span class="folder-name">{{ truncate(folder.name, 22) }}</span>
+              <span class="flex-1 text-[0.8125rem] text-cape-cod-300 font-medium whitespace-nowrap overflow-hidden text-ellipsis min-w-0">{{ truncate(folder.name, 22) }}</span>
             </template>
             <i
-              class="pi folder-chevron"
+              class="pi text-[0.625rem] text-cape-cod-500 shrink-0"
               :class="folder.collapsed ? 'pi-chevron-right' : 'pi-chevron-down'"
             />
-            <button class="context-btn" @click.stop="openFolderMenu($event, folder.id)">
+            <button class="hidden group-hover:flex items-center justify-center p-1 rounded bg-transparent border-none text-cape-cod-500 hover:text-cape-cod-300 hover:bg-white/5 shrink-0 text-[0.75rem]" @click.stop="openFolderMenu($event, folder.id)">
               <i class="pi pi-ellipsis-v" />
             </button>
           </div>
 
           <!-- Conversaciones de la carpeta -->
           <Transition name="folder-expand">
-            <div v-show="!folder.collapsed" class="folder-conversations">
+            <div v-show="!folder.collapsed" class="block">
               <div
                 v-for="conv in (store.conversationsByFolder[folder.id] ?? [])"
                 :key="conv.id"
-                class="conv-item conv-item--indented"
-                :class="{ active: store.activeId === conv.id }"
+                class="flex items-center gap-2 pl-6 pr-3 py-2 cursor-pointer border-l-2 transition-colors min-h-[36px] group"
+                :class="[
+                  store.activeId === conv.id
+                    ? 'bg-cape-cod-400/10 border-cape-cod-400'
+                    : 'border-transparent hover:bg-white/5'
+                ]"
                 @click="store.setActive(conv.id)"
               >
                 <template v-if="renamingId === conv.id">
                   <input
                     :id="`rename-input-${conv.id}`"
                     v-model="renameValue"
-                    class="inline-input rename-input"
+                    class="flex-1 min-w-0 bg-white/5 border border-cape-cod-400/50 rounded text-cape-cod-50 text-[0.8125rem] px-1.5 py-0.5 outline-none"
                     @blur="confirmRename(conv.id)"
                     @keydown.enter="confirmRename(conv.id)"
                     @keydown.esc="renamingId = null"
@@ -263,10 +279,10 @@ function truncate(text: string, max = 28): string {
                   />
                 </template>
                 <template v-else>
-                  <i class="pi pi-comments conv-icon" />
-                  <span class="conv-title-text">{{ truncate(conv.title) }}</span>
-                  <i v-if="conv.pinned" class="pi pi-bookmark pin-icon" />
-                  <button class="context-btn" @click.stop="openContextMenu($event, conv.id)">
+                  <i class="pi pi-comments text-[0.75rem] text-cape-cod-500 shrink-0" />
+                  <span class="flex-1 text-[0.8125rem] whitespace-nowrap overflow-hidden text-ellipsis min-w-0" :class="store.activeId === conv.id ? 'text-cape-cod-300' : 'text-cape-cod-400'">{{ truncate(conv.title) }}</span>
+                  <i v-if="conv.pinned" class="pi pi-bookmark text-[0.625rem] text-yellow-500 shrink-0" />
+                  <button class="hidden group-hover:flex items-center justify-center p-1 rounded bg-transparent border-none text-cape-cod-500 hover:text-cape-cod-300 hover:bg-white/5 shrink-0 text-[0.75rem]" @click.stop="openContextMenu($event, conv.id)">
                     <i class="pi pi-ellipsis-v" />
                   </button>
                 </template>
@@ -279,35 +295,35 @@ function truncate(text: string, max = 28): string {
     </div>
 
     <!-- Popover menú contextual de conversación -->
-    <Popover ref="contextMenu" class="conv-popover">
-      <div class="popover-menu">
-        <button class="popover-item" @click="contextConvId && startRename(contextConvId, store.conversations.find(c => c.id === contextConvId)?.title ?? '')">
+    <Popover ref="contextMenu" class="conv-popover" :pt="{ content: { class: 'p-1 bg-cape-cod-900 border border-white/10 rounded-lg min-w-[160px]' } }">
+      <div class="flex flex-col gap-0.5">
+        <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="contextConvId && startRename(contextConvId, store.conversations.find(c => c.id === contextConvId)?.title ?? '')">
           <i class="pi pi-pencil" /> Renombrar
         </button>
-        <button class="popover-item" @click="contextConvId && store.togglePin(contextConvId); contextMenu?.hide()">
+        <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="contextConvId && store.togglePin(contextConvId); contextMenu?.hide()">
           <i class="pi pi-bookmark" />
           {{ contextConvId && store.conversations.find(c => c.id === contextConvId)?.pinned ? 'Quitar pin' : 'Pinear' }}
         </button>
-        <button class="popover-item" @click="openMoveMenu($event)">
-          <i class="pi pi-folder" /> Mover a carpeta <i class="pi pi-chevron-right" style="margin-left:auto;font-size:0.7rem" />
+        <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="openMoveMenu($event)">
+          <i class="pi pi-folder" /> Mover a carpeta <i class="pi pi-chevron-right ml-auto text-[0.7rem]" />
         </button>
-        <div class="popover-divider" />
-        <button class="popover-item popover-item--danger" @click="contextConvId && handleDeleteConv(contextConvId)">
+        <div class="h-px bg-white/10 my-0.5 mx-2" />
+        <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-red-400 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-red-400/10" @click="contextConvId && handleDeleteConv(contextConvId)">
           <i class="pi pi-trash" /> Eliminar
         </button>
       </div>
     </Popover>
 
     <!-- Submenu: mover a carpeta -->
-    <Popover ref="moveMenu" class="conv-popover">
-      <div class="popover-menu">
-        <button class="popover-item" @click="moveConv(null)">
+    <Popover ref="moveMenu" class="conv-popover" :pt="{ content: { class: 'p-1 bg-cape-cod-900 border border-white/10 rounded-lg min-w-[160px]' } }">
+      <div class="flex flex-col gap-0.5">
+        <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="moveConv(null)">
           <i class="pi pi-inbox" /> Sin carpeta
         </button>
         <button
           v-for="folder in store.folders"
           :key="folder.id"
-          class="popover-item"
+          class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50"
           @click="moveConv(folder.id)"
         >
           <i class="pi pi-folder" :style="{ color: folder.color }" /> {{ truncate(folder.name, 20) }}
@@ -316,13 +332,13 @@ function truncate(text: string, max = 28): string {
     </Popover>
 
     <!-- Popover menú de carpeta -->
-    <Popover ref="folderMenu" class="conv-popover">
-      <div class="popover-menu">
-        <button class="popover-item" @click="folderMenuId && startRenameFolder(folderMenuId, store.folders.find(f => f.id === folderMenuId)?.name ?? '')">
+    <Popover ref="folderMenu" class="conv-popover" :pt="{ content: { class: 'p-1 bg-cape-cod-900 border border-white/10 rounded-lg min-w-[160px]' } }">
+      <div class="flex flex-col gap-0.5">
+        <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="folderMenuId && startRenameFolder(folderMenuId, store.folders.find(f => f.id === folderMenuId)?.name ?? '')">
           <i class="pi pi-pencil" /> Renombrar
         </button>
-        <div class="popover-divider" />
-        <button class="popover-item popover-item--danger" @click="folderMenuId && handleDeleteFolder(folderMenuId)">
+        <div class="h-px bg-white/10 my-0.5 mx-2" />
+        <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-red-400 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-red-400/10" @click="folderMenuId && handleDeleteFolder(folderMenuId)">
           <i class="pi pi-trash" /> Eliminar carpeta
         </button>
       </div>
@@ -331,332 +347,6 @@ function truncate(text: string, max = 28): string {
 </template>
 
 <style scoped>
-.conv-sidebar {
-  width: 260px;
-  min-width: 260px;
-  background: rgba(10, 10, 15, 0.6);
-  border-right: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  transition: width 0.25s ease, min-width 0.25s ease;
-  flex-shrink: 0;
-}
-
-.conv-sidebar--collapsed {
-  width: 40px;
-  min-width: 40px;
-  overflow: hidden;
-}
-
-.conv-sidebar--collapsed .sidebar-content {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.sidebar-toggle {
-  position: absolute;
-  top: 12px;
-  right: -14px;
-  z-index: 10;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.625rem;
-  transition: color 0.2s, border-color 0.2s;
-}
-
-.sidebar-toggle:hover {
-  color: var(--cyan-400);
-  border-color: rgba(34, 211, 238, 0.4);
-}
-
-.sidebar-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: opacity 0.2s;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 0.75rem 0.5rem;
-  flex-shrink: 0;
-}
-
-.sidebar-title {
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.125rem;
-}
-
-.icon-btn {
-  color: var(--text-muted) !important;
-  width: 1.75rem !important;
-  height: 1.75rem !important;
-  padding: 0 !important;
-}
-
-.icon-btn:hover {
-  color: var(--cyan-400) !important;
-}
-
-/* Crear carpeta */
-.folder-create-form {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.color-picker {
-  display: flex;
-  gap: 0.375rem;
-  flex-wrap: wrap;
-}
-
-.color-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 2px solid transparent;
-  padding: 0;
-  transition: transform 0.15s;
-}
-
-.color-dot.active {
-  border-color: #fff;
-  transform: scale(1.2);
-}
-
-.folder-name-row {
-  display: flex;
-  gap: 0.25rem;
-  align-items: center;
-}
-
-.inline-input {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  padding: 0.25rem 0.5rem;
-  outline: none;
-}
-
-.inline-input:focus {
-  border-color: rgba(34, 211, 238, 0.4);
-}
-
-.confirm-btn {
-  color: #4ade80 !important;
-}
-
-/* Lista de conversaciones */
-.conv-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.25rem 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-subtle) transparent;
-}
-
-.conv-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  border-radius: 0;
-  border-left: 2px solid transparent;
-  transition: background 0.15s, border-color 0.15s;
-  min-height: 36px;
-}
-
-.conv-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.conv-item.active {
-  background: rgba(34, 211, 238, 0.08);
-  border-left-color: var(--cyan-400);
-}
-
-.conv-item--indented {
-  padding-left: 1.5rem;
-}
-
-.conv-icon {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.conv-title-text {
-  flex: 1;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.conv-item.active .conv-title-text {
-  color: var(--cyan-400);
-}
-
-.pin-icon {
-  font-size: 0.625rem;
-  color: #facc15;
-  flex-shrink: 0;
-}
-
-.context-btn {
-  display: none;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.125rem 0.25rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  flex-shrink: 0;
-}
-
-.conv-item:hover .context-btn {
-  display: flex;
-  align-items: center;
-}
-
-.context-btn:hover {
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.rename-input {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Carpetas */
-.folder-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.folder-header:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.folder-icon {
-  font-size: 0.875rem;
-  flex-shrink: 0;
-}
-
-.folder-name {
-  flex: 1;
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.folder-chevron {
-  font-size: 0.625rem;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.folder-header .context-btn {
-  display: none;
-}
-
-.folder-header:hover .context-btn {
-  display: flex;
-  align-items: center;
-}
-
-.folder-conversations { display: block; }
-
-/* Popover */
-:deep(.conv-popover .p-popover-content) {
-  padding: 0.25rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  min-width: 160px;
-}
-
-.popover-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.popover-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  border-radius: 6px;
-  width: 100%;
-  text-align: left;
-  transition: background 0.15s, color 0.15s;
-}
-
-.popover-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-primary);
-}
-
-.popover-item--danger {
-  color: #f87171;
-}
-
-.popover-item--danger:hover {
-  background: rgba(248, 113, 113, 0.08);
-}
-
-.popover-divider {
-  height: 1px;
-  background: var(--border-subtle);
-  margin: 0.125rem 0.5rem;
-}
-
 /* Transitions */
 .slide-down-enter-active,
 .slide-down-leave-active {
@@ -684,30 +374,15 @@ function truncate(text: string, max = 28): string {
   opacity: 0;
 }
 
-/* Mobile */
-@media (max-width: 767px) {
-  .conv-sidebar {
-    position: fixed;
-    top: 64px;
-    left: 0;
-    bottom: 0;
-    z-index: 200;
-    width: 260px !important;
-    min-width: 260px !important;
-    transform: translateX(0);
-    transition: transform 0.25s ease;
-  }
-
-  .conv-sidebar--collapsed {
-    transform: translateX(-260px);
-    width: 260px !important;
-    min-width: 260px !important;
-  }
-
-  .sidebar-toggle {
-    right: -40px;
-    top: 50%;
-    transform: translateY(-50%);
-  }
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
 }
 </style>
