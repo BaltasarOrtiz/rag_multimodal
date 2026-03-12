@@ -1,7 +1,8 @@
-import { ref, watchEffect } from 'vue'
+import { ref, computed } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import ragApi from '@/api/ragApi'
 import { useCollectionStore } from '@/stores/useCollectionStore'
+import { useConversationStore } from '@/stores/useConversationStore'
 import type { QueryResponse, DocumentInfo, IngestStatus, ChatMessage, SourceInfo, RagStreamError, ChatRequest } from '@/types/rag'
 
 // ── Health ──────────────────────────────────────────────────
@@ -196,7 +197,8 @@ export function useReset() {
 // ── Chat multi-turn ───────────────────────────────────────────────────────────
 export function useChat() {
   const collectionStore = useCollectionStore()
-  const messages = ref<ChatMessage[]>([])
+  const convStore = useConversationStore()
+
   const loading = ref(false)
   const streaming = ref(false)
   const streamingText = ref('')
@@ -204,36 +206,33 @@ export function useChat() {
   const topK = ref(3)
   const fileTypeFilter = ref<string | null>(null)
 
-  const STORAGE_KEY_MESSAGES = 'rag_chat_messages'
-  const STORAGE_KEY_SESSION  = 'rag_chat_session_id'
-
-  // Carga inicial desde localStorage
-  const stored = localStorage.getItem(STORAGE_KEY_MESSAGES)
-  if (stored) {
-    try { messages.value = JSON.parse(stored) } catch { messages.value = [] }
-  }
-  const storedSession = localStorage.getItem(STORAGE_KEY_SESSION)
-  const sessionId = ref(storedSession ?? crypto.randomUUID())
-  if (!storedSession) localStorage.setItem(STORAGE_KEY_SESSION, sessionId.value)
-
-  // Persistir en cada cambio
-  watchEffect(() => {
-    localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messages.value.slice(-50)))
-  })
-  watchEffect(() => {
-    if (sessionId.value)
-      localStorage.setItem(STORAGE_KEY_SESSION, sessionId.value)
-  })
+  // Las messages y el sessionId viven en el store
+  const messages = computed(() => convStore.activeConversation?.messages ?? [])
+  const sessionId = computed(() => convStore.activeConversation?.sessionId ?? '')
 
   async function send(message: string) {
     if (!message.trim() || loading.value || streaming.value) return
 
-    messages.value.push({
+    const convId = convStore.activeId
+    if (!convId) return
+
+    const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
       content: message,
       timestamp: Date.now(),
-    })
+    }
+    convStore.addMessage(convId, userMsg)
+
+    // Agregar burbuja de asistente vacía para actualizar luego
+    const assistantMsgId = crypto.randomUUID()
+    const assistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+    }
+    convStore.addMessage(convId, assistantMsg)
 
     streaming.value = true
     streamingText.value = ''
@@ -243,17 +242,22 @@ export function useChat() {
 
     await ragApi.chatStream(
       { message, session_id: sessionId.value, top_k: topK.value, file_type_filter: fileTypeFilter.value || null } as ChatRequest,
-      (token) => { streamingText.value += token },
+      (token) => {
+        streamingText.value += token
+        // Actualizar el mensaje del asistente en el store en tiempo real
+        convStore.updateLastAssistantMessage(convId, streamingText.value)
+      },
       (data) => {
-        messages.value.push({
-          id: data.query_id,
-          role: 'assistant',
-          content: streamingText.value,
-          sources: data.sources as SourceInfo[],
-          nodes_retrieved: data.nodes_retrieved,
-          query_id: data.query_id,
-          timestamp: Date.now(),
-        })
+        convStore.updateLastAssistantMessage(convId, streamingText.value, data.sources as SourceInfo[])
+        // Actualizar query_id y nodes_retrieved en el último mensaje del asistente
+        const conv = convStore.activeConversation
+        if (conv) {
+          const lastAssistant = [...conv.messages].reverse().find(m => m.role === 'assistant')
+          if (lastAssistant) {
+            lastAssistant.query_id = data.query_id
+            lastAssistant.nodes_retrieved = data.nodes_retrieved
+          }
+        }
         streamingText.value = ''
         streaming.value = false
         loading.value = false
@@ -261,12 +265,7 @@ export function useChat() {
       () => {
         // onDone — si sources no llegó, cerrar igual
         if (streaming.value) {
-          messages.value.push({
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: streamingText.value,
-            timestamp: Date.now(),
-          })
+          convStore.updateLastAssistantMessage(convId, streamingText.value)
           streamingText.value = ''
           streaming.value = false
           loading.value = false
@@ -274,6 +273,8 @@ export function useChat() {
       },
       (err) => {
         error.value = err
+        // Eliminar el mensaje de asistente vacío si hubo error
+        convStore.deleteMessage(convId, assistantMsgId)
         streamingText.value = ''
         streaming.value = false
         loading.value = false
@@ -283,17 +284,19 @@ export function useChat() {
   }
 
   async function clearSession() {
-    try { await ragApi.clearChatSession(sessionId.value) } catch { /* ignorar */ }
-    messages.value = []
+    const convId = convStore.activeId
+    if (convId) {
+      try { await ragApi.clearChatSession(sessionId.value) } catch { /* ignorar */ }
+    }
     error.value = null
-    localStorage.removeItem(STORAGE_KEY_MESSAGES)
-    localStorage.removeItem(STORAGE_KEY_SESSION)
+    convStore.createConversation()
   }
 
   async function submitFeedback(msg: ChatMessage, rating: 1 | -1) {
     if (!msg.query_id) return
-    const idx = messages.value.findIndex(m => m.id === msg.id)
-    const userMsg = idx > 0 ? messages.value[idx - 1] : null
+    const msgs = messages.value
+    const idx = msgs.findIndex(m => m.id === msg.id)
+    const userMsg = idx > 0 ? msgs[idx - 1] : null
     msg.rating = rating
     try {
       await ragApi.submitFeedback({
@@ -305,25 +308,98 @@ export function useChat() {
     } catch { /* ignorar */ }
   }
 
-  function exportMarkdown() {
-    const lines: string[] = ['# Conversación RAG\n', `> Exportada el ${new Date().toLocaleString('es-AR')}\n`]
-    for (const msg of messages.value) {
-      if (msg.role === 'user') {
-        lines.push(`\n**👤 Tú:**\n\n${msg.content}\n`)
-      } else {
-        lines.push(`\n**🤖 RAG:**\n\n${msg.content}\n`)
-        if (msg.sources?.length) {
-          lines.push('\n**Fuentes:** ' + msg.sources.map(s => s.filename).join(', ') + '\n')
+  function exportConversation(format: 'md' | 'html') {
+    const { marked } = window as any
+    const DOMPurify = (window as any).DOMPurify
+    const title = convStore.activeConversation?.title ?? 'Conversación RAG'
+    const now = new Date().toLocaleString('es-AR')
+
+    if (format === 'md') {
+      const lines: string[] = [`# ${title}\n`, `> Exportada el ${now}\n`]
+      for (const msg of messages.value) {
+        if (msg.role === 'user') {
+          lines.push(`\n**👤 Tú:**\n\n${msg.content}\n`)
+        } else {
+          lines.push(`\n**🤖 RAG:**\n\n${msg.content}\n`)
+          if (msg.sources?.length) {
+            lines.push('\n**Fuentes:** ' + msg.sources.map(s => s.filename).join(', ') + '\n')
+          }
         }
       }
+      const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
+      _downloadBlob(blob, `conversacion-rag-${Date.now()}.md`)
+    } else {
+      // HTML con estilos inline oscuros
+      const msgHtml = messages.value.map(msg => {
+        if (msg.role === 'user') {
+          return `<div style="display:flex;justify-content:flex-end;margin:1rem 0">
+            <div style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.25);border-radius:12px;padding:0.875rem 1.125rem;max-width:75%;color:#e2e8f0;white-space:pre-wrap">${_escapeHtml(msg.content)}</div>
+          </div>`
+        } else {
+          // Para HTML, usamos el contenido tal cual (ya es markdown; en HTML export lo renderizamos inline)
+          const contentHtml = _parseMarkdownToHtml(msg.content)
+          const sourcesHtml = msg.sources?.length
+            ? `<div style="font-size:0.75rem;color:#94a3b8;margin-top:0.5rem">Fuentes: ${msg.sources.map(s => _escapeHtml(s.filename)).join(', ')}</div>`
+            : ''
+          return `<div style="display:flex;align-items:flex-start;gap:0.75rem;margin:1rem 0">
+            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:0.875rem 1.125rem;max-width:85%;color:#e2e8f0">${contentHtml}${sourcesHtml}</div>
+          </div>`
+        }
+      }).join('\n')
+
+      const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${_escapeHtml(title)}</title>
+<style>
+  body { background: #0a0a0f; font-family: system-ui, -apple-system, sans-serif; color: #e2e8f0; margin: 0; padding: 2rem; }
+  h1 { color: #22d3ee; font-size: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem; }
+  .meta { color: #64748b; font-size: 0.875rem; margin-bottom: 2rem; }
+  pre { background: rgba(0,0,0,0.4); border-radius: 8px; padding: 1em; overflow-x: auto; }
+  code { font-family: monospace; }
+  footer { color: #475569; font-size: 0.75rem; text-align: center; margin-top: 3rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1rem; }
+</style>
+</head>
+<body>
+<h1>${_escapeHtml(title)}</h1>
+<p class="meta">Exportada el ${now}</p>
+${msgHtml}
+<footer>RAG Multimodal · LlamaIndex · Gemini · Qdrant</footer>
+</body>
+</html>`
+      const blob = new Blob([html], { type: 'text/html' })
+      _downloadBlob(blob, `conversacion-rag-${Date.now()}.html`)
     }
-    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
+  }
+
+  // Alias para compatibilidad con código existente
+  function exportMarkdown() { exportConversation('md') }
+
+  function _downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `conversacion-rag-${Date.now()}.md`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  function _escapeHtml(str: string): string {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  }
+
+  function _parseMarkdownToHtml(text: string): string {
+    // Conversión básica para HTML export (sin dependencia de marked en runtime)
+    return text
+      .replace(/```[\s\S]*?```/g, m => `<pre><code>${_escapeHtml(m.slice(3, -3).replace(/^[a-z]+\n/, ''))}</code></pre>`)
+      .replace(/`([^`]+)`/g, (_, c) => `<code>${_escapeHtml(c)}</code>`)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+      .replace(/\n/g, '<br>')
   }
 
   return {
@@ -339,5 +415,6 @@ export function useChat() {
     clearSession,
     submitFeedback,
     exportMarkdown,
+    exportConversation,
   }
 }

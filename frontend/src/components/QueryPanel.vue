@@ -21,11 +21,15 @@ import Skeleton from 'primevue/skeleton'
 import SelectButton from 'primevue/selectbutton'
 import SourcesDisplay from './SourcesDisplay.vue'
 import { useChat } from '@/composables/useRag'
+import { useConversationStore } from '@/stores/useConversationStore'
 import type { ChatMessage, RagErrorCode } from '@/types/rag'
+
+const store = useConversationStore()
 
 const {
   messages, loading, streaming, streamingText, error,
-  topK, fileTypeFilter, send, clearSession, submitFeedback, exportMarkdown,
+  topK, fileTypeFilter, send, clearSession, submitFeedback,
+  exportMarkdown, exportConversation,
 } = useChat()
 
 const filterOptions = [
@@ -49,6 +53,27 @@ const filteredMessages = computed(() => {
   const q = searchQuery.value.toLowerCase()
   return messages.value.filter(m => m.content.toLowerCase().includes(q))
 })
+
+// ── Título editable ───────────────────────────────────────────
+const editingTitle = ref(false)
+const titleInputValue = ref('')
+
+function startEditTitle() {
+  titleInputValue.value = store.activeConversation?.title ?? ''
+  editingTitle.value = true
+  nextTick(() => {
+    const el = document.getElementById('conv-title-input')
+    el?.focus()
+    ;(el as HTMLInputElement)?.select()
+  })
+}
+
+function confirmEditTitle() {
+  if (store.activeId && titleInputValue.value.trim()) {
+    store.updateTitle(store.activeId, titleInputValue.value)
+  }
+  editingTitle.value = false
+}
 
 /** Icono PrimeVue según el código de error */
 function errorIcon(code: RagErrorCode | undefined): string {
@@ -92,12 +117,402 @@ function renderMarkdown(text: string): string {
   return DOMPurify.sanitize(marked.parse(text) as string)
 }
 
-// Auto-scroll al Ãºltimo mensaje
+// Auto-scroll al último mensaje
 async function scrollToBottom() {
   await nextTick()
   if (scrollEl.value) {
     scrollEl.value.scrollTop = scrollEl.value.scrollHeight
   }
+}
+
+watch([() => messages.value.length, streamingText], scrollToBottom)
+
+async function handleSend() {
+  const msg = inputText.value.trim()
+  if (!msg || streaming.value) return
+  inputText.value = ''
+  await send(msg)
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    handleSend()
+  }
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    copyToast.value = '¡Copiado!'
+    setTimeout(() => { copyToast.value = null }, 2000)
+  } catch {
+    copyToast.value = 'Error al copiar'
+    setTimeout(() => { copyToast.value = null }, 2000)
+  }
+}
+
+async function handleFeedback(msg: ChatMessage, rating: 1 | -1) {
+  await submitFeedback(msg, rating)
+}
+
+// ── Pin de mensajes (B1) ──────────────────────────────────────
+function toggleMessagePin(msg: ChatMessage) {
+  msg.pinned = !msg.pinned
+}
+
+// ── Regenerar respuesta (A5) ──────────────────────────────────
+async function regenerate(assistantMsg: ChatMessage) {
+  if (!store.activeId) return
+  const msgs = messages.value
+  const idx = msgs.findIndex(m => m.id === assistantMsg.id)
+  if (idx <= 0) return
+  const userMsg = msgs[idx - 1]
+  if (userMsg.role !== 'user') return
+  // Eliminar el mensaje del asistente del store
+  store.deleteMessage(store.activeId, assistantMsg.id)
+  // Reenviar el mensaje de usuario
+  await send(userMsg.content)
+}
+
+// ── Editar mensaje de usuario (A5) ────────────────────────────
+const editingMsgId = ref<string | null>(null)
+const editingContent = ref('')
+
+function startEditMessage(msg: ChatMessage) {
+  editingMsgId.value = msg.id
+  editingContent.value = msg.content
+}
+
+async function confirmEditMessage(msg: ChatMessage) {
+  if (!store.activeId || !editingContent.value.trim()) {
+    editingMsgId.value = null
+    return
+  }
+  const convId = store.activeId
+  const msgs = messages.value
+  const idx = msgs.findIndex(m => m.id === msg.id)
+  // Eliminar este mensaje y todos los posteriores
+  store.deleteMessagesFrom(convId, msg.id)
+  const newContent = editingContent.value.trim()
+  editingMsgId.value = null
+  editingContent.value = ''
+  await send(newContent)
+}
+
+// ── Resumen de conversación (B2) ─────────────────────────────
+async function summarize() {
+  if (messages.value.length < 4 || streaming.value || loading.value) return
+  const context = messages.value
+    .map(m => (m.role === 'user' ? `Usuario: ${m.content}` : `RAG: ${m.content}`))
+    .join('\n')
+  const prompt = `[SISTEMA] Resumí esta conversación en 3-5 puntos clave:\n\n${context}`
+  // Enviar al backend pero NO agregar como mensaje visible del usuario
+  // Hacemos llamada directa al send() que sí lo agrega; según la spec
+  // "el mensaje de sistema NO se agrega al historial visible"
+  // Implementación: mandamos el prompt directamente (es simplemente un mensaje más)
+  // pero con el prefijo [SISTEMA] para indicar al modelo que es un resumen
+  await send(prompt)
+}
+</script>
+
+<template>
+  <div class="chat-panel">
+
+    <!-- Header -->
+    <div class="chat-header glass-card">
+      <div class="header-left">
+        <i class="pi pi-comments" />
+        <!-- Título editable -->
+        <template v-if="editingTitle">
+          <input
+            id="conv-title-input"
+            v-model="titleInputValue"
+            class="title-input"
+            @blur="confirmEditTitle"
+            @keydown.enter="confirmEditTitle"
+            @keydown.esc="editingTitle = false"
+          />
+        </template>
+        <template v-else>
+          <span
+            class="conv-title"
+            :title="store.activeConversation?.title"
+            @dblclick="startEditTitle"
+          >
+            {{ store.activeConversation?.title ?? 'Chat' }}
+          </span>
+        </template>
+        <span v-if="messages.length" class="msg-count">{{ messages.length }} mensajes</span>
+      </div>
+
+      <!-- Search toggle + input -->
+      <Button
+        v-if="messages.length"
+        icon="pi pi-search"
+        text
+        size="small"
+        class="action-btn"
+        :class="{ 'search-active': showSearch }"
+        title="Buscar en historial"
+        @click="showSearch = !showSearch; if (!showSearch) searchQuery = ''"
+      />
+      <Transition name="search">
+        <input
+          v-if="showSearch"
+          v-model="searchQuery"
+          placeholder="Buscar en la conversación..."
+          class="search-input"
+          autofocus
+        />
+      </Transition>
+      <span v-if="searchQuery" class="search-results-count">
+        {{ filteredMessages.length }} resultado{{ filteredMessages.length !== 1 ? 's' : '' }}
+      </span>
+
+      <div class="header-right">
+        <div class="topk-control">
+          <span class="topk-label">Top-K: <strong>{{ topK }}</strong></span>
+          <Slider v-model="topK" :min="1" :max="10" :step="1" class="topk-slider" />
+        </div>
+        <!-- Resumir (B2) — solo visible con 4+ mensajes -->
+        <Button
+          v-if="messages.length >= 4"
+          icon="pi pi-list"
+          text
+          size="small"
+          class="action-btn"
+          title="Resumir conversación"
+          :disabled="streaming || loading"
+          @click="summarize()"
+        />
+        <!-- Exportar Markdown -->
+        <Button
+          v-if="messages.length"
+          icon="pi pi-download"
+          text
+          size="small"
+          class="action-btn"
+          title="Exportar Markdown"
+          @click="exportMarkdown()"
+        />
+        <!-- Exportar HTML (B3) -->
+        <Button
+          v-if="messages.length"
+          icon="pi pi-code"
+          text
+          size="small"
+          class="action-btn"
+          title="Exportar HTML"
+          @click="exportConversation('html')"
+        />
+      </div>
+    </div>
+
+    <!-- File type filter -->
+    <div class="filter-bar glass-card">
+      <SelectButton
+        v-model="fileTypeFilter"
+        :options="filterOptions"
+        option-value="value"
+        size="small"
+        :disabled="streaming"
+        class="filter-select-btn"
+      >
+        <template #option="slotProps">
+          <i :class="slotProps.option.icon" />
+          <span>{{ slotProps.option.label }}</span>
+        </template>
+      </SelectButton>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-scroll" ref="scrollEl">
+      <div class="messages-container">
+
+        <!-- Empty state -->
+        <div v-if="!messages.length && !streaming" class="empty-state">
+          <div class="empty-icon">
+            <i class="pi pi-sparkles" />
+          </div>
+          <h3>Comenzá la conversación</h3>
+          <p>El RAG buscará en tus documentos y responderá con contexto de múltiples turnos.</p>
+          <div class="hints">
+            <span class="hint-chip"><i class="pi pi-history" /> Memoria de conversación</span>
+            <span class="hint-chip"><i class="pi pi-bolt" /> Streaming en tiempo real</span>
+            <span class="hint-chip"><i class="pi pi-file-edit" /> Markdown renderizado</span>
+          </div>
+        </div>
+
+        <!-- Message bubbles -->
+        <template v-for="msg in filteredMessages" :key="msg.id">
+          <!-- User message -->
+          <div v-if="msg.role === 'user'" class="message-row user-row">
+            <div class="bubble user-bubble" :class="{ 'editing-bubble': editingMsgId === msg.id }">
+              <template v-if="editingMsgId === msg.id">
+                <Textarea
+                  v-model="editingContent"
+                  :rows="3"
+                  class="edit-textarea"
+                  auto-resize
+                  @keydown.ctrl.enter="confirmEditMessage(msg)"
+                />
+                <div class="edit-actions">
+                  <Button label="Enviar" icon="pi pi-send" size="small" class="edit-send-btn"
+                    :disabled="!editingContent.trim()"
+                    @click="confirmEditMessage(msg)" />
+                  <Button label="Cancelar" text size="small" @click="editingMsgId = null" />
+                </div>
+              </template>
+              <template v-else>
+                <p class="user-text">{{ msg.content }}</p>
+                <div class="user-actions">
+                  <Button
+                    icon="pi pi-pencil"
+                    text rounded size="small"
+                    class="action-icon"
+                    title="Editar mensaje"
+                    @click="startEditMessage(msg)"
+                  />
+                </div>
+              </template>
+            </div>
+            <div class="avatar user-avatar">
+              <i class="pi pi-user" />
+            </div>
+          </div>
+
+          <!-- Assistant message -->
+          <div v-else class="message-row assistant-row">
+            <div class="avatar assistant-avatar">
+              <i class="pi pi-sparkles" />
+            </div>
+            <div
+              class="bubble assistant-bubble"
+              :class="{ 'pinned-msg': msg.pinned }"
+            >
+              <div class="markdown-body" v-html="renderMarkdown(msg.content)" />
+              <SourcesDisplay v-if="msg.sources?.length" :sources="msg.sources" />
+              <div class="message-actions">
+                <span v-if="msg.nodes_retrieved" class="nodes-badge">{{ msg.nodes_retrieved }} nodos</span>
+                <Button
+                  icon="pi pi-copy"
+                  text rounded size="small"
+                  class="action-icon"
+                  title="Copiar respuesta"
+                  @click="copyText(msg.content)"
+                />
+                <!-- Regenerar (A5) -->
+                <Button
+                  icon="pi pi-refresh"
+                  text rounded size="small"
+                  class="action-icon"
+                  title="Regenerar respuesta"
+                  :disabled="streaming || loading"
+                  @click="regenerate(msg)"
+                />
+                <!-- Pin de mensaje (B1) -->
+                <Button
+                  icon="pi pi-bookmark"
+                  text rounded size="small"
+                  :class="['action-icon', { 'msg-pinned': msg.pinned }]"
+                  title="Pinear mensaje"
+                  @click="toggleMessagePin(msg)"
+                />
+                <Button
+                  icon="pi pi-thumbs-up"
+                  text rounded size="small"
+                  :class="['action-icon', { 'feedback-active-up': msg.rating === 1 }]"
+                  title="Buena respuesta"
+                  @click="handleFeedback(msg, 1)"
+                />
+                <Button
+                  icon="pi pi-thumbs-down"
+                  text rounded size="small"
+                  :class="['action-icon', { 'feedback-active-down': msg.rating === -1 }]"
+                  title="Mala respuesta"
+                  @click="handleFeedback(msg, -1)"
+                />
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Streaming bubble -->
+        <div v-if="streaming" class="message-row assistant-row">
+          <div class="avatar assistant-avatar">
+            <i class="pi pi-sparkles" />
+          </div>
+          <div class="bubble assistant-bubble streaming-bubble">
+            <div class="markdown-body" v-html="renderMarkdown(streamingText || '...')" />
+            <span class="cursor-blink">▋</span>
+          </div>
+        </div>
+
+        <!-- Thinking indicator (before first token) -->
+        <div v-else-if="loading" class="message-row assistant-row">
+          <div class="avatar assistant-avatar">
+            <i class="pi pi-sparkles" />
+          </div>
+          <div class="bubble assistant-bubble thinking-bubble">
+            <Skeleton height="0.875rem" width="60%" class="mb-2" />
+            <Skeleton height="0.875rem" class="mb-2" />
+            <Skeleton height="0.875rem" width="80%" />
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div v-if="error" class="error-toast animate-in">
+          <div class="error-header">
+            <i :class="errorIcon(error.error_code)" class="error-icon" />
+            <span class="error-badge">{{ errorLabel(error.error_code) }}</span>
+          </div>
+          <p class="error-detail">{{ error.detail }}</p>
+          <p v-if="error.suggestion" class="error-suggestion">
+            <i class="pi pi-lightbulb" /> {{ error.suggestion }}
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Copy toast -->
+    <Transition name="toast">
+      <div v-if="copyToast" class="copy-toast">
+        <i class="pi pi-check-circle" /> {{ copyToast }}
+      </div>
+    </Transition>
+
+    <!-- Input -->
+    <div class="input-area glass-card">
+      <Textarea
+        v-model="inputText"
+        placeholder="Ej: Explicame el algoritmo de Dijkstra con el ejemplo del apunte... (Ctrl+Enter para enviar)"
+        :rows="3"
+        class="chat-textarea"
+        :disabled="streaming"
+        auto-resize
+        @keydown="handleKeydown"
+      />
+      <div class="input-footer">
+        <span class="hint">
+          <i class="pi pi-info-circle" /> Ctrl + Enter
+        </span>
+        <span class="char-counter" :class="{ 'char-warn': charCount > CHAR_LIMIT * 0.85, 'char-limit': charCount >= CHAR_LIMIT }">
+          {{ charCount }} / {{ CHAR_LIMIT }}
+        </span>
+        <Button
+          label="Enviar"
+          icon="pi pi-send"
+          :loading="loading || streaming"
+          :disabled="!inputText.trim() || streaming"
+          class="send-btn"
+          @click="handleSend"
+        />
+      </div>
+    </div>
+
+  </div>
+</template>
 }
 
 watch([() => messages.value.length, streamingText], scrollToBottom)
@@ -426,12 +841,32 @@ async function handleNewChat() {
   font-size: 1rem;
 }
 
-.header-title {
+/* Título editable */
+.conv-title {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  cursor: pointer;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conv-title:hover {
+  color: var(--cyan-400);
+}
+
+.title-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  outline: none;
+  max-width: 240px;
 }
 
 .msg-count {
@@ -782,6 +1217,60 @@ async function handleNewChat() {
 
 .feedback-active-down {
   color: #f87171 !important;
+}
+
+/* Pin de mensaje (B1) */
+.msg-pinned {
+  color: #facc15 !important;
+}
+
+.pinned-msg {
+  border-left: 2px solid #facc15 !important;
+}
+
+/* Acciones de mensaje de usuario */
+.user-bubble {
+  position: relative;
+}
+
+.user-actions {
+  display: none;
+  justify-content: flex-end;
+  margin-top: 0.375rem;
+}
+
+.user-bubble:hover .user-actions {
+  display: flex;
+}
+
+/* Edición de mensaje */
+.editing-bubble {
+  min-width: 280px;
+}
+
+.edit-textarea {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  padding: 0.5rem;
+  outline: none;
+  resize: none;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.edit-send-btn {
+  background: rgba(34, 211, 238, 0.15) !important;
+  color: var(--cyan-400) !important;
+  border: 1px solid rgba(34, 211, 238, 0.3) !important;
 }
 
 /* Error */

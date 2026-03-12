@@ -15,6 +15,7 @@ import type {
   CollectionsResponse,
   CollectionCreateRequest,
   RagStreamError,
+  RagConfig,
 } from '@/types/rag'
 
 /** Construye un RagStreamError genérico cuando no hay payload estructurado */
@@ -124,6 +125,16 @@ export const ragApi = {
   /** POST /feedback */
   submitFeedback(payload: FeedbackRequest): Promise<MessageResponse> {
     return api.post<MessageResponse>('/feedback', payload).then(r => r.data)
+  },
+
+  /** GET /config */
+  getConfig(): Promise<RagConfig> {
+    return api.get<RagConfig>('/config').then(r => r.data)
+  },
+
+  /** PUT /config */
+  updateConfig(body: Partial<RagConfig>): Promise<{ ok: boolean }> {
+    return api.put<{ ok: boolean }>('/config', body).then(r => r.data)
   },
 
   /**

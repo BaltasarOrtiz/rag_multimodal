@@ -497,6 +497,64 @@ def clear_session(session_id: str):
     return {"message": "Sesión eliminada." if cleared else "Sesión no encontrada.", "cleared": cleared}
 
 
+# ── Config endpoints ─────────────────────────────────────────
+
+class ConfigUpdate(BaseModel):
+    llm_model: str | None = None
+    embedding_model: str | None = None
+    enable_hybrid: bool | None = None
+    enable_reranker: bool | None = None
+    enable_hyde: bool | None = None
+    enable_semantic_chunking: bool | None = None
+    reranker_model: str | None = None
+    hybrid_alpha: float | None = None
+
+
+def reinitialize_llm():
+    """Reconfigura los modelos LLM y embedding en LlamaIndex Settings."""
+    from llama_index.core import Settings as LlamaSettings
+    from llama_index.llms.google_genai import GoogleGenAI
+    from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
+    LlamaSettings.llm = GoogleGenAI(
+        model=settings.llm_model,
+        api_key=settings.google_api_key,
+    )
+    LlamaSettings.embed_model = GoogleGenAIEmbedding(
+        model_name=settings.embedding_model,
+        api_key=settings.google_api_key,
+    )
+    logger.info("LLM reconfigurado", llm_model=settings.llm_model, embedding_model=settings.embedding_model)
+
+
+@app.get("/config")
+def get_config():
+    """Retorna la configuración actual (sin secretos)."""
+    return {
+        "llm_model": settings.llm_model,
+        "embedding_model": settings.embedding_model,
+        "enable_hybrid": settings.enable_hybrid,
+        "enable_reranker": settings.enable_reranker,
+        "enable_hyde": settings.enable_hyde,
+        "enable_semantic_chunking": settings.enable_semantic_chunking,
+        "reranker_model": settings.reranker_model,
+        "hybrid_alpha": settings.hybrid_alpha,
+        "embedding_dim": settings.embedding_dim,
+    }
+
+
+@app.put("/config")
+async def update_config(body: ConfigUpdate, _: None = Security(verify_api_key)):
+    """Actualiza la configuración en memoria (sin reiniciar)."""
+    changed_llm = False
+    for field, value in body.model_dump(exclude_none=True).items():
+        setattr(settings, field, value)
+        if field in ("llm_model", "embedding_model"):
+            changed_llm = True
+    if changed_llm:
+        reinitialize_llm()
+    return {"ok": True}
+
+
 # ── Feedback de calidad ───────────────────────────────────────
 FEEDBACK_FILE = Path("./feedback.jsonl")
 

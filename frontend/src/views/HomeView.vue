@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import ConfirmDialog from 'primevue/confirmdialog'
 import DocumentUpload from '@/components/DocumentUpload.vue'
 import IngestPanel from '@/components/IngestPanel.vue'
 import QueryPanel from '@/components/QueryPanel.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CollectionManager from '@/components/CollectionManager.vue'
+import ConversationSidebar from '@/components/ConversationSidebar.vue'
+
+const sidebarCollapsed = ref(false)
 </script>
 
 <template>
@@ -12,18 +16,22 @@ import CollectionManager from '@/components/CollectionManager.vue'
     <ConfirmDialog />
     <AppHeader />
 
-    <main class="main-content">
-      <div class="sidebar">
-        <!-- Gestión de colecciones (en la cima del sidebar) -->
+    <div class="main-content">
+      <!-- Sidebar izquierdo: historial de conversaciones -->
+      <ConversationSidebar v-model:collapsed="sidebarCollapsed" />
+
+      <!-- Columna central: chat -->
+      <section class="center-column">
+        <QueryPanel />
+      </section>
+
+      <!-- Sidebar derecho: documentos/ingestión -->
+      <aside class="right-sidebar">
         <CollectionManager />
         <DocumentUpload />
         <IngestPanel />
-      </div>
-
-      <section class="query-section">
-        <QueryPanel />
-      </section>
-    </main>
+      </aside>
+    </div>
 
     <!-- Footer -->
     <footer class="app-footer">
@@ -41,50 +49,64 @@ import CollectionManager from '@/components/CollectionManager.vue'
 
 .main-content {
   flex: 1;
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-  padding: 1.5rem;
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 1.5rem;
-  align-items: start;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  height: calc(100vh - 64px - 48px); /* viewport - header - footer */
 }
 
-.sidebar {
+/* Columna central */
+.center-column {
+  flex: 1;
+  min-width: 0;
+  padding: 1rem 1.25rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sidebar derecho: documentos / ingestión */
+.right-sidebar {
+  width: 320px;
+  min-width: 280px;
+  flex-shrink: 0;
+  padding: 1rem 1rem 1rem 0;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  position: sticky;
-  top: 80px;
-  max-height: calc(100vh - 96px);
   overflow-y: auto;
-  padding-right: 2px;
-}
-
-.query-section {
-  min-height: calc(100vh - 160px);
+  border-left: 1px solid var(--border-subtle);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
 }
 
 /* Footer */
 .app-footer {
   text-align: center;
-  padding: 1.25rem;
+  padding: 0.875rem;
   font-size: 0.6875rem;
   color: var(--text-muted);
   border-top: 1px solid var(--border-subtle);
   letter-spacing: 0.04em;
+  flex-shrink: 0;
 }
 
-/* Responsive */
-@media (max-width: 900px) {
+/* Responsive: pantallas medianas — ocultar right-sidebar */
+@media (max-width: 1100px) {
+  .right-sidebar {
+    display: none;
+  }
+}
+
+/* Responsive: móvil */
+@media (max-width: 767px) {
   .main-content {
-    grid-template-columns: 1fr;
+    height: auto;
+    flex-direction: column;
   }
 
-  .sidebar {
-    position: static;
-    max-height: none;
+  .center-column {
+    padding: 0.75rem;
   }
 }
 </style>

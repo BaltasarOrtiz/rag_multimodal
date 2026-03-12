@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import Select from 'primevue/select'
+import Button from 'primevue/button'
 import { useHealth } from '@/composables/useRag'
 import { useCollectionStore } from '@/stores/useCollectionStore'
 
+const router = useRouter()
 const { status, indexLoaded } = useHealth()
 const collectionStore = useCollectionStore()
 
@@ -45,8 +48,19 @@ function onCollectionChange(name: string) {
         @change="onCollectionChange($event.value)"
       />
 
-      <!-- Status badge -->
+      <!-- Acciones del header -->
       <div class="header-right">
+        <!-- Botón de configuraciones -->
+        <Button
+          icon="pi pi-cog"
+          text
+          rounded
+          class="settings-btn"
+          title="Configuraciones"
+          @click="router.push('/settings')"
+        />
+
+        <!-- Status badge -->
         <div class="status-pill" :class="status">
           <span class="status-dot" />
           <span v-if="status === 'loading'">Conectando…</span>
@@ -180,6 +194,15 @@ function onCollectionChange(name: string) {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+/* Settings button */
+.settings-btn {
+  color: var(--text-muted) !important;
+  flex-shrink: 0;
+}
+.settings-btn:hover {
+  color: var(--cyan-400) !important;
 }
 
 /* Responsive: esconder selector de colección en pantallas pequeñas */

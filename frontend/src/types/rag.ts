@@ -61,6 +61,7 @@ export interface ChatMessage {
   query_id?: string
   timestamp: number
   rating?: 1 | -1
+  pinned?: boolean
 }
 
 export interface FeedbackRequest {
@@ -137,4 +138,18 @@ export interface RagStreamError {
   detail: string
   error_code: RagErrorCode
   suggestion: string
+}
+
+// ── Configuración del backend ────────────────────────────
+
+export interface RagConfig {
+  llm_model: string
+  embedding_model: string
+  enable_hybrid: boolean
+  enable_reranker: boolean
+  enable_hyde: boolean
+  enable_semantic_chunking: boolean
+  reranker_model: string
+  hybrid_alpha: number
+  embedding_dim: number
 }

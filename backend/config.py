@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-2-v2"
     hybrid_alpha: float = 0.5
 
+    # Modelos
+    llm_model: str = "gemini-2.5-flash"
+    embedding_model: str = "models/gemini-embedding-exp-03-07"
+
     # API
     max_upload_mb: int = 50
     api_port: int = 8000
