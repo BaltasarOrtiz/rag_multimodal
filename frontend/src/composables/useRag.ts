@@ -147,28 +147,46 @@ export function useIngestStatus() {
     finished_at: null,
   })
 
-  const { pause, resume, isActive } = useIntervalFn(
-    async () => {
-      try {
-        const col = collectionStore.activeCollection || undefined
-        ingestStatus.value = await ragApi.getIngestStatus(col)
-        if (ingestStatus.value.status !== 'running') {
-          pause()
-        }
-      } catch {
-        pause()
-      }
-    },
-    3_000,
-    { immediate: false },
-  )
+  const isPolling = ref(false)
+  let _timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  function _stopPolling() {
+    isPolling.value = false
+    if (_timeoutId !== null) {
+      clearTimeout(_timeoutId)
+      _timeoutId = null
+    }
+  }
+
+  async function _poll(intervalMs: number) {
+    if (!isPolling.value) return
+    try {
+      const col = collectionStore.activeCollection || undefined
+      ingestStatus.value = await ragApi.getIngestStatus(col)
+    } catch {
+      _stopPolling()
+      return
+    }
+
+    if (ingestStatus.value.status !== 'running') {
+      _stopPolling()
+      return
+    }
+
+    // Double the interval each attempt, cap at 10 s
+    const next = Math.min(intervalMs * 2, 10_000)
+    _timeoutId = setTimeout(() => _poll(next), next)
+  }
 
   /** Llama a esto tras disparar /ingest para iniciar el polling. */
   function startPolling() {
-    resume()
+    _stopPolling()
+    isPolling.value = true
+    // Start at 1 s, doubles each attempt, caps at 10 s
+    _timeoutId = setTimeout(() => _poll(1_000), 1_000)
   }
 
-  return { ingestStatus, startPolling, isPolling: isActive }
+  return { ingestStatus, startPolling, isPolling }
 }
 
 // ── Reset ────────────────────────────────────────────────────

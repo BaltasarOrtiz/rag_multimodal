@@ -40,6 +40,8 @@ fastembed>=0.2.0                # Sparse vectors BM25 para búsqueda híbrida de
 sentence-transformers>=2.7.0    # Cross-encoder local para re-ranking de resultados
 ragas>=0.1.0                    # Evaluación objetiva del pipeline RAG (faithfulness, recall, etc.)
 
+cachetools>=5.3.0         # TTLCache para INDEX_CACHE y _CHAT_ENGINES (evitar memory leaks)
+
 # Tests (mejora 04)
 pytest>=8.0.0
 pytest-asyncio>=0.23.0

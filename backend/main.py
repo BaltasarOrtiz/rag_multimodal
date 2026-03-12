@@ -7,11 +7,14 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+import contextvars
 import shutil
 import os
 import re
 import json
+import uuid
 import filetype
+from cachetools import TTLCache
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -36,11 +39,14 @@ from rag.models import (
 INDEX = None
 MAX_UPLOAD_MB = settings.max_upload_mb
 
-# Cache de índices por colección (múltiples knowledge bases)
-INDEX_CACHE: dict[str, object] = {}
+# Cache de índices por colección — máx 50 entradas, TTL 30 min
+INDEX_CACHE: TTLCache = TTLCache(maxsize=50, ttl=1800)
 
 # Estado de ingestión por colección
 INGEST_STATUS_BY_COLLECTION: dict[str, dict] = {}
+
+# ContextVar para propagar request_id a través de cadenas async
+_request_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
 
 def _default_ingest_status(collection: str) -> dict:
     return {
@@ -167,6 +173,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """Genera un UUID4 por request, lo propaga vía ContextVar y lo expone en la respuesta."""
+    request_id = str(uuid.uuid4())
+    _request_id_ctx.set(request_id)
+    request.state.request_id = request_id
+    with logger.contextualize(request_id=request_id):
+        response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 # ── Endpoints ─────────────────────────────────────────────────

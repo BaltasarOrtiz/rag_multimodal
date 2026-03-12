@@ -1,7 +1,9 @@
 import asyncio
 import json
+import threading
 import uuid
 from typing import AsyncGenerator, Optional
+from cachetools import TTLCache
 
 from llama_index.core import VectorStoreIndex
 from llama_index.core.memory import ChatMemoryBuffer
@@ -146,6 +148,7 @@ def _classify_error(exc: Exception) -> tuple[str, str, str]:
 
 # ── Reranker singleton ────────────────────────────────────────
 _reranker: Optional[SentenceTransformerRerank] = None
+_reranker_lock = threading.Lock()
 
 
 def _get_reranker(top_n: int) -> Optional[SentenceTransformerRerank]:
@@ -153,20 +156,21 @@ def _get_reranker(top_n: int) -> Optional[SentenceTransformerRerank]:
     global _reranker
     if not app_settings.enable_reranker:
         return None
-    if _reranker is None:
-        try:
-            _reranker = SentenceTransformerRerank(model=app_settings.reranker_model, top_n=top_n)
-            print(f"✅ Reranker cargado: {app_settings.reranker_model}")
-        except Exception as exc:
-            print(f"⚠️  Reranker no disponible ({exc}). Usando ranking por coseno.")
-            return None
-    else:
-        _reranker.top_n = top_n
-    return _reranker
+    with _reranker_lock:
+        if _reranker is None:
+            try:
+                _reranker = SentenceTransformerRerank(model=app_settings.reranker_model, top_n=top_n)
+                print(f"✅ Reranker cargado: {app_settings.reranker_model}")
+            except Exception as exc:
+                print(f"⚠️  Reranker no disponible ({exc}). Usando ranking por coseno.")
+                return None
+        else:
+            _reranker.top_n = top_n
+        return _reranker
 
 
-# ── Chat Engine Registry (in-memory por sesión) ───────────────
-_CHAT_ENGINES: dict[str, object] = {}
+# ── Chat Engine Registry — máx 50 sesiones, TTL 30 min ────────
+_CHAT_ENGINES: TTLCache = TTLCache(maxsize=50, ttl=1800)
 
 
 def _effective_query_mode(index: VectorStoreIndex) -> VectorStoreQueryMode:

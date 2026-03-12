@@ -1,4 +1,5 @@
 import base64
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from llama_index.core import (
@@ -14,6 +15,7 @@ import qdrant_client
 from qdrant_client.models import Distance, VectorParams
 
 from config import settings as app_settings
+from logger import logger
 
 # Directorio base para datos por colección: ./data/{collection_name}/
 BASE_DATA_DIR = Path("./data")
@@ -56,26 +58,28 @@ def get_collection_storage_dir(collection_name: str) -> Path:
 
 
 _settings_initialized = False
+_init_lock = threading.Lock()
 
 
 def _init_llama_settings() -> None:
     global _settings_initialized
-    if _settings_initialized:
-        return
-    Settings.embed_model = GoogleGenAIEmbedding(
-        model_name=app_settings.embedding_model,
-        api_key=app_settings.google_api_key,
-        embed_batch_size=10,
-    )
-    Settings.llm = GoogleGenAI(
-        model="gemini-2.5-flash",
-        api_key=app_settings.google_api_key,
-        max_tokens=4096,
-    )
-    # Fallback: se usa solo si SemanticSplitter está desactivado
-    Settings.chunk_size = 512
-    Settings.chunk_overlap = 64
-    _settings_initialized = True
+    with _init_lock:
+        if _settings_initialized:
+            return
+        Settings.embed_model = GoogleGenAIEmbedding(
+            model_name=app_settings.embedding_model,
+            api_key=app_settings.google_api_key,
+            embed_batch_size=10,
+        )
+        Settings.llm = GoogleGenAI(
+            model=app_settings.llm_model,
+            api_key=app_settings.google_api_key,
+            max_tokens=4096,
+        )
+        # Fallback: se usa solo si SemanticSplitter está desactivado
+        Settings.chunk_size = 512
+        Settings.chunk_overlap = 64
+        _settings_initialized = True
 
 
 def get_qdrant_client():
@@ -215,7 +219,11 @@ def _embed_images_natively(data_dir: Path) -> list:
             image_nodes.append(node)
             print(f"\U0001f5bc\ufe0f  Imagen embedeada nativamente: {img_path.name}")
         except Exception as exc:
-            print(f"\u26a0\ufe0f  No se pudo embeddear {img_path.name} nativamente ({exc}). Saltando.")
+            logger.warning(
+                "No se pudo embeddear imagen nativamente",
+                filename=img_path.name,
+                error=str(exc),
+            )
             continue
     return image_nodes
 
