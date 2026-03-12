@@ -309,8 +309,6 @@ export function useChat() {
   }
 
   function exportConversation(format: 'md' | 'html') {
-    const { marked } = window as any
-    const DOMPurify = (window as any).DOMPurify
     const title = convStore.activeConversation?.title ?? 'Conversación RAG'
     const now = new Date().toLocaleString('es-AR')
 

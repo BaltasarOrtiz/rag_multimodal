@@ -28,7 +28,7 @@ const store = useConversationStore()
 
 const {
   messages, loading, streaming, streamingText, error,
-  topK, fileTypeFilter, send, clearSession, submitFeedback,
+  topK, fileTypeFilter, send, submitFeedback,
   exportMarkdown, exportConversation,
 } = useChat()
 
@@ -167,7 +167,7 @@ async function regenerate(assistantMsg: ChatMessage) {
   const idx = msgs.findIndex(m => m.id === assistantMsg.id)
   if (idx <= 0) return
   const userMsg = msgs[idx - 1]
-  if (userMsg.role !== 'user') return
+  if (!userMsg || userMsg.role !== 'user') return
   // Eliminar el mensaje del asistente del store
   store.deleteMessage(store.activeId, assistantMsg.id)
   // Reenviar el mensaje de usuario
@@ -189,8 +189,6 @@ async function confirmEditMessage(msg: ChatMessage) {
     return
   }
   const convId = store.activeId
-  const msgs = messages.value
-  const idx = msgs.findIndex(m => m.id === msg.id)
   // Eliminar este mensaje y todos los posteriores
   store.deleteMessagesFrom(convId, msg.id)
   const newContent = editingContent.value.trim()
@@ -513,270 +511,6 @@ async function summarize() {
 
   </div>
 </template>
-}
-
-watch([() => messages.value.length, streamingText], scrollToBottom)
-
-async function handleSend() {
-  const msg = inputText.value.trim()
-  if (!msg || streaming.value) return
-  inputText.value = ''
-  await send(msg)
-}
-
-function handleKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    handleSend()
-  }
-}
-
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    copyToast.value = 'Â¡Copiado!'
-    setTimeout(() => { copyToast.value = null }, 2000)
-  } catch {
-    copyToast.value = 'Error al copiar'
-    setTimeout(() => { copyToast.value = null }, 2000)
-  }
-}
-
-async function handleFeedback(msg: ChatMessage, rating: 1 | -1) {
-  await submitFeedback(msg, rating)
-}
-
-async function handleNewChat() {
-  await clearSession()
-  inputText.value = ''
-}
-</script>
-
-<template>
-  <div class="chat-panel">
-
-    <!-- Header -->
-    <div class="chat-header glass-card">
-      <div class="header-left">
-        <i class="pi pi-comments" />
-        <span class="header-title">Chat RAG</span>
-        <span v-if="messages.length" class="msg-count">{{ messages.length }} mensajes</span>
-      </div>
-
-      <!-- Search toggle + input -->
-      <Button
-        v-if="messages.length"
-        icon="pi pi-search"
-        text
-        size="small"
-        class="action-btn"
-        :class="{ 'search-active': showSearch }"
-        title="Buscar en historial"
-        @click="showSearch = !showSearch; if (!showSearch) searchQuery = ''"
-      />
-      <Transition name="search">
-        <input
-          v-if="showSearch"
-          v-model="searchQuery"
-          placeholder="Buscar en la conversación..."
-          class="search-input"
-          autofocus
-        />
-      </Transition>
-      <span v-if="searchQuery" class="search-results-count">
-        {{ filteredMessages.length }} resultado{{ filteredMessages.length !== 1 ? 's' : '' }}
-      </span>
-
-      <div class="header-right">
-        <div class="topk-control">
-          <span class="topk-label">Top-K: <strong>{{ topK }}</strong></span>
-          <Slider v-model="topK" :min="1" :max="10" :step="1" class="topk-slider" />
-        </div>
-        <Button
-          v-if="messages.length"
-          icon="pi pi-download"
-          label="Exportar"
-          text
-          size="small"
-          class="action-btn"
-          @click="exportMarkdown"
-        />
-        <Button
-          icon="pi pi-refresh"
-          label="Nuevo chat"
-          text
-          size="small"
-          class="action-btn"
-          @click="handleNewChat"
-        />
-      </div>
-    </div>
-
-    <!-- File type filter -->
-    <div class="filter-bar glass-card">
-      <SelectButton
-        v-model="fileTypeFilter"
-        :options="filterOptions"
-        option-value="value"
-        size="small"
-        :disabled="streaming"
-        class="filter-select-btn"
-      >
-        <template #option="slotProps">
-          <i :class="slotProps.option.icon" />
-          <span>{{ slotProps.option.label }}</span>
-        </template>
-      </SelectButton>
-    </div>
-
-    <!-- Messages -->
-    <div class="messages-scroll" ref="scrollEl">
-      <div class="messages-container">
-
-        <!-- Empty state -->
-        <div v-if="!messages.length && !streaming" class="empty-state">
-          <div class="empty-icon">
-            <i class="pi pi-sparkles" />
-          </div>
-          <h3>ComenzÃ¡ la conversaciÃ³n</h3>
-          <p>El RAG buscarÃ¡ en tus documentos y responderÃ¡ con contexto de mÃºltiples turnos.</p>
-          <div class="hints">
-            <span class="hint-chip"><i class="pi pi-history" /> Memoria de conversaciÃ³n</span>
-            <span class="hint-chip"><i class="pi pi-bolt" /> Streaming en tiempo real</span>
-            <span class="hint-chip"><i class="pi pi-file-edit" /> Markdown renderizado</span>
-          </div>
-        </div>
-
-        <!-- Message bubbles -->
-        <template v-for="msg in filteredMessages" :key="msg.id">
-          <!-- User message -->
-          <div v-if="msg.role === 'user'" class="message-row user-row">
-            <div class="bubble user-bubble">
-              <p class="user-text">{{ msg.content }}</p>
-            </div>
-            <div class="avatar user-avatar">
-              <i class="pi pi-user" />
-            </div>
-          </div>
-
-          <!-- Assistant message -->
-          <div v-else class="message-row assistant-row">
-            <div class="avatar assistant-avatar">
-              <i class="pi pi-sparkles" />
-            </div>
-            <div class="bubble assistant-bubble">
-              <div class="markdown-body" v-html="renderMarkdown(msg.content)" />
-              <SourcesDisplay v-if="msg.sources?.length" :sources="msg.sources" />
-              <div class="message-actions">
-                <span v-if="msg.nodes_retrieved" class="nodes-badge">{{ msg.nodes_retrieved }} nodos</span>
-                <Button
-                  icon="pi pi-copy"
-                  text
-                  rounded
-                  size="small"
-                  class="action-icon"
-                  title="Copiar respuesta"
-                  @click="copyText(msg.content)"
-                />
-                <Button
-                  icon="pi pi-thumbs-up"
-                  text
-                  rounded
-                  size="small"
-                  :class="['action-icon', { 'feedback-active-up': msg.rating === 1 }]"
-                  title="Buena respuesta"
-                  @click="handleFeedback(msg, 1)"
-                />
-                <Button
-                  icon="pi pi-thumbs-down"
-                  text
-                  rounded
-                  size="small"
-                  :class="['action-icon', { 'feedback-active-down': msg.rating === -1 }]"
-                  title="Mala respuesta"
-                  @click="handleFeedback(msg, -1)"
-                />
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <!-- Streaming bubble -->
-        <div v-if="streaming" class="message-row assistant-row">
-          <div class="avatar assistant-avatar">
-            <i class="pi pi-sparkles" />
-          </div>
-          <div class="bubble assistant-bubble streaming-bubble">
-            <div class="markdown-body" v-html="renderMarkdown(streamingText || '...')" />
-            <span class="cursor-blink">â–‹</span>
-          </div>
-        </div>
-
-        <!-- Thinking indicator (before first token) -->
-        <div v-else-if="loading" class="message-row assistant-row">
-          <div class="avatar assistant-avatar">
-            <i class="pi pi-sparkles" />
-          </div>
-          <div class="bubble assistant-bubble thinking-bubble">
-            <Skeleton height="0.875rem" width="60%" class="mb-2" />
-            <Skeleton height="0.875rem" class="mb-2" />
-            <Skeleton height="0.875rem" width="80%" />
-          </div>
-        </div>
-
-        <!-- Error -->
-        <div v-if="error" class="error-toast animate-in">
-          <div class="error-header">
-            <i :class="errorIcon(error.error_code)" class="error-icon" />
-            <span class="error-badge">{{ errorLabel(error.error_code) }}</span>
-          </div>
-          <p class="error-detail">{{ error.detail }}</p>
-          <p v-if="error.suggestion" class="error-suggestion">
-            <i class="pi pi-lightbulb" /> {{ error.suggestion }}
-          </p>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Copy toast -->
-    <Transition name="toast">
-      <div v-if="copyToast" class="copy-toast">
-        <i class="pi pi-check-circle" /> {{ copyToast }}
-      </div>
-    </Transition>
-
-    <!-- Input -->
-    <div class="input-area glass-card">
-      <Textarea
-        v-model="inputText"
-        placeholder="Ej: Explicame el algoritmo de Dijkstra con el ejemplo del apunte... (Ctrl+Enter para enviar)"
-        :rows="3"
-        class="chat-textarea"
-        :disabled="streaming"
-        auto-resize
-        @keydown="handleKeydown"
-      />
-      <div class="input-footer">
-        <span class="hint">
-          <i class="pi pi-info-circle" /> Ctrl + Enter
-        </span>
-        <span class="char-counter" :class="{ 'char-warn': charCount > CHAR_LIMIT * 0.85, 'char-limit': charCount >= CHAR_LIMIT }">
-          {{ charCount }} / {{ CHAR_LIMIT }}
-        </span>
-        <Button
-          label="Enviar"
-          icon="pi pi-send"
-          :loading="loading || streaming"
-          :disabled="!inputText.trim() || streaming"
-          class="send-btn"
-          @click="handleSend"
-        />
-      </div>
-    </div>
-
-  </div>
-</template>
-
 <style scoped>
 .chat-panel {
   display: flex;
