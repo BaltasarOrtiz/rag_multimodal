@@ -215,12 +215,12 @@ async function summarize() {
 
 
 <template>
-  <div class="flex flex-col gap-4 h-full min-h-0">
+  <div class="flex flex-col h-full min-h-0">
 
     <!-- Header -->
-    <div class="px-5 py-3.5 flex items-center justify-between gap-4 shrink-0 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-200 hover:bg-white/10 hover:border-cape-cod-600/30">
+    <div class="px-4 py-3 flex items-center justify-between gap-3 shrink-0 border-b border-white/6 bg-[#111111]">
       <div class="flex items-center gap-2.5">
-        <i class="pi pi-comments text-cape-cod-400 text-base" />
+        <i class="pi pi-comments text-zinc-500 text-sm" />
         <!-- Título editable -->
         <template v-if="editingTitle">
           <input
@@ -234,14 +234,14 @@ async function summarize() {
         </template>
         <template v-else>
           <span
-            class="text-sm font-semibold text-cape-cod-300 cursor-pointer max-w-60 whitespace-nowrap overflow-hidden text-ellipsis hover:text-cape-cod-400 transition-colors"
+            class="text-sm font-semibold text-zinc-300 cursor-pointer max-w-60 whitespace-nowrap overflow-hidden text-ellipsis hover:text-zinc-100 transition-colors"
             :title="store.activeConversation?.title"
             @dblclick="startEditTitle"
           >
             {{ store.activeConversation?.title ?? 'Chat' }}
           </span>
         </template>
-        <span v-if="messages.length" class="text-[0.7rem] text-cape-cod-400 bg-cape-cod-400/10 border border-cape-cod-400/20 rounded-full px-2 py-0.5">{{ messages.length }} mensajes</span>
+        <span v-if="messages.length" class="text-[0.66rem] text-zinc-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5">{{ messages.length }} mensajes</span>
       </div>
 
       <!-- Search toggle + input -->
@@ -250,8 +250,8 @@ async function summarize() {
         icon="pi pi-search"
         text
         size="small"
-        class="text-[0.8rem]! text-cape-cod-500! hover:text-cape-cod-400!"
-        :class="{ 'text-cape-cod-400!': showSearch }"
+        class="text-[0.8rem]! text-zinc-500! hover:text-zinc-300!"
+        :class="{ 'text-zinc-300!': showSearch }"
         title="Buscar en historial"
         @click="showSearch = !showSearch; if (!showSearch) searchQuery = ''"
       />
@@ -260,26 +260,22 @@ async function summarize() {
           v-if="showSearch"
           v-model="searchQuery"
           placeholder="Buscar en la conversación..."
-          class="bg-white/5 border border-white/10 rounded-lg text-cape-cod-50 text-[0.8rem] px-2.5 py-1 outline-none w-45 focus:w-55 focus:border-cape-cod-400 transition-all duration-250"
+          class="bg-white/5 border border-white/10 rounded-lg text-zinc-100 text-[0.8rem] px-2.5 py-1 outline-none w-45 focus:w-55 focus:border-zinc-500 transition-all duration-250"
           autofocus
         />
       </Transition>
-      <span v-if="searchQuery" class="text-[0.68rem] text-cape-cod-400 bg-cape-cod-400/10 border border-cape-cod-400/20 rounded-full px-2 py-0.5 whitespace-nowrap">
+      <span v-if="searchQuery" class="text-[0.68rem] text-zinc-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5 whitespace-nowrap">
         {{ filteredMessages.length }} resultado{{ filteredMessages.length !== 1 ? 's' : '' }}
       </span>
 
       <div class="flex items-center gap-3">
-        <div class="hidden md:flex items-center gap-3">
-          <span class="text-xs text-cape-cod-500 whitespace-nowrap">Top-K: <strong class="text-cape-cod-400">{{ topK }}</strong></span>
-          <Slider v-model="topK" :min="1" :max="10" :step="1" class="w-18" />
-        </div>
         <!-- Resumir (B2) — solo visible con 4+ mensajes -->
         <Button
           v-if="messages.length >= 4"
           icon="pi pi-list"
           text
           size="small"
-          class="text-[0.8rem]! text-cape-cod-500! hover:text-cape-cod-400!"
+          class="text-[0.8rem]! text-zinc-500! hover:text-zinc-300!"
           title="Resumir conversación"
           :disabled="streaming || loading"
           @click="summarize()"
@@ -290,7 +286,7 @@ async function summarize() {
           icon="pi pi-download"
           text
           size="small"
-          class="text-[0.8rem]! text-cape-cod-500! hover:text-cape-cod-400!"
+          class="text-[0.8rem]! text-zinc-500! hover:text-zinc-300!"
           title="Exportar Markdown"
           @click="exportMarkdown()"
         />
@@ -300,7 +296,7 @@ async function summarize() {
           icon="pi pi-code"
           text
           size="small"
-          class="text-[0.8rem]! text-cape-cod-500! hover:text-cape-cod-400!"
+          class="text-[0.8rem]! text-zinc-500! hover:text-zinc-300!"
           title="Exportar HTML"
           @click="exportConversation('html')"
         />
@@ -308,7 +304,7 @@ async function summarize() {
     </div>
 
     <!-- File type filter -->
-    <div class="px-5 py-1.5 shrink-0 flex items-center bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl">
+    <div class="px-4 py-3 shrink-0 flex items-center justify-between gap-3 border-b border-white/6 bg-[#111111]">
       <SelectButton
         v-model="fileTypeFilter"
         :options="filterOptions"
@@ -321,8 +317,8 @@ async function summarize() {
             class: [
               '!text-[0.72rem] !px-2.5 !py-1 !gap-1.5 !rounded-md border !transition-colors',
               context.active
-                ? '!bg-cape-cod-400/10 !border-cape-cod-400/40 !text-cape-cod-400'
-                : '!bg-white/5 !border-white/10 !text-cape-cod-500 hover:!bg-white/10 hover:!text-cape-cod-300'
+                ? '!bg-zinc-800 !border-white/15 !text-zinc-200'
+                : '!bg-transparent !border-transparent !text-zinc-500 hover:!bg-white/5 hover:!text-zinc-300'
             ]
           })
         }"
@@ -332,23 +328,48 @@ async function summarize() {
           <span>{{ slotProps.option.label }}</span>
         </template>
       </SelectButton>
+
+      <div class="hidden md:flex items-center gap-2.5">
+        <span class="text-[0.62rem] font-bold uppercase tracking-[0.14em] text-zinc-500 whitespace-nowrap">Top-K: {{ topK }}</span>
+        <Slider v-model="topK" :min="1" :max="10" :step="1" class="w-24" />
+      </div>
     </div>
 
     <!-- Messages -->
     <div class="flex-1 overflow-y-auto min-h-0 custom-scrollbar" ref="scrollEl">
-      <div class="flex flex-col gap-5 py-4 px-2">
+      <div class="flex flex-col gap-5 py-8 px-6">
 
         <!-- Empty state -->
-        <div v-if="!messages.length && !streaming" class="flex flex-col items-center justify-center gap-3.5 py-12 px-6 text-center text-cape-cod-500">
-          <div class="w-14 h-14 rounded-full bg-linear-to-br from-cape-cod-400/10 to-cape-cod-600/10 border border-cape-cod-400/15 flex items-center justify-center">
-            <i class="pi pi-sparkles text-2xl text-cape-cod-400" />
+        <div v-if="!messages.length && !streaming" class="flex flex-col items-center justify-center gap-6 py-14 px-6 text-center">
+          <div class="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/25 flex items-center justify-center">
+            <i class="pi pi-bolt text-2xl text-blue-500" />
           </div>
-          <h3 class="m-0 text-lg font-semibold text-cape-cod-300">Comenzá la conversación</h3>
-          <p class="m-0 text-sm max-w-104 leading-relaxed">El RAG buscará en tus documentos y responderá con contexto de múltiples turnos.</p>
-          <div class="flex flex-wrap gap-2 justify-center mt-1">
-            <span class="flex items-center gap-1.5 text-[0.72rem] px-2.5 py-1 bg-cape-cod-600/10 border border-cape-cod-600/20 rounded-full text-cape-cod-400"><i class="pi pi-history" /> Memoria de conversación</span>
-            <span class="flex items-center gap-1.5 text-[0.72rem] px-2.5 py-1 bg-cape-cod-600/10 border border-cape-cod-600/20 rounded-full text-cape-cod-400"><i class="pi pi-bolt" /> Streaming en tiempo real</span>
-            <span class="flex items-center gap-1.5 text-[0.72rem] px-2.5 py-1 bg-cape-cod-600/10 border border-cape-cod-600/20 rounded-full text-cape-cod-400"><i class="pi pi-file-edit" /> Markdown renderizado</span>
+          <div>
+            <h3 class="m-0 mb-1 text-[2rem] leading-none font-bold text-zinc-100">¿Por dónde empezar?</h3>
+            <p class="m-0 text-[0.88rem] text-zinc-500 leading-relaxed">Seguí estos pasos para realizar tu primera consulta con IA multimodal.</p>
+          </div>
+          <div class="flex flex-col gap-3 w-full max-w-[430px] text-left">
+            <div class="flex items-start gap-3 p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-blue-500/30 transition-colors">
+              <span class="shrink-0 w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-[0.72rem] font-bold text-blue-400">1</span>
+              <div>
+                <p class="m-0 text-[0.92rem] font-semibold text-zinc-200">Subir documentos</p>
+                <p class="m-0 text-[0.77rem] text-zinc-500 mt-0.5">Abrí el panel lateral derecho <span class="text-zinc-300">Documentos</span> y cargá tus archivos PDF, imágenes o texto plano.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-blue-500/30 transition-colors">
+              <span class="shrink-0 w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-[0.72rem] font-bold text-purple-400">2</span>
+              <div>
+                <p class="m-0 text-[0.92rem] font-semibold text-zinc-200">Ingestar al índice</p>
+                <p class="m-0 text-[0.77rem] text-zinc-500 mt-0.5">En la sección <span class="text-zinc-300">Ingestión</span>, procesá los documentos para que la IA pueda leerlos y entender el contexto.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-blue-500/30 transition-colors">
+              <span class="shrink-0 w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-[0.72rem] font-bold text-emerald-400">3</span>
+              <div>
+                <p class="m-0 text-[0.92rem] font-semibold text-zinc-200">Hacé tu consulta</p>
+                <p class="m-0 text-[0.77rem] text-zinc-500 mt-0.5">Escribí tu pregunta en el cuadro de abajo y presioná <kbd class="text-[0.62rem] bg-zinc-800 border border-white/10 rounded px-1.5 py-0.5">Ctrl+Enter</kbd> para enviar.</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -356,7 +377,7 @@ async function summarize() {
         <template v-for="msg in filteredMessages" :key="msg.id">
           <!-- User message -->
           <div v-if="msg.role === 'user'" class="flex items-start gap-3 flex-row-reverse animate-fade-up">
-            <div class="max-w-[78%] p-3.5 rounded-2xl text-[0.9375rem] leading-relaxed bg-linear-to-br from-cape-cod-400/10 to-cape-cod-600/5 border border-cape-cod-400/20 rounded-tr-md group relative" :class="{ 'min-w-70': editingMsgId === msg.id }">
+            <div class="max-w-[78%] p-3.5 rounded-2xl text-[0.9375rem] leading-relaxed bg-cape-cod-700/40 border border-cape-cod-500/30 rounded-tr-md group relative" :class="{ 'min-w-70': editingMsgId === msg.id }">
               <template v-if="editingMsgId === msg.id">
                 <Textarea
                   v-model="editingContent"
@@ -396,7 +417,7 @@ async function summarize() {
               <i class="pi pi-sparkles" />
             </div>
             <div
-              class="max-w-[78%] p-3.5 rounded-2xl text-[0.9375rem] leading-relaxed bg-white/5 border border-white/10 rounded-tl-md group"
+              class="max-w-[78%] p-3.5 rounded-2xl text-[0.9375rem] leading-relaxed bg-cape-cod-950/60 border border-white/8 rounded-tl-md group"
               :class="{ 'border-l-2! border-yellow-400!': msg.pinned }"
             >
               <div class="markdown-body" v-html="renderMarkdown(msg.content)" />
@@ -454,7 +475,7 @@ async function summarize() {
           <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm bg-linear-to-br from-cape-cod-700 to-cape-cod-900 text-white border border-cape-cod-600/50 shadow-md">
             <i class="pi pi-sparkles" />
           </div>
-          <div class="max-w-[78%] p-3.5 rounded-2xl text-[0.9375rem] leading-relaxed bg-white/5 border border-cape-cod-400/30 rounded-tl-md">
+          <div class="max-w-[78%] p-3.5 rounded-2xl text-[0.9375rem] leading-relaxed bg-cape-cod-950/60 border border-cape-cod-400/30 rounded-tl-md">
             <div class="markdown-body" v-html="renderMarkdown(streamingText || '...')" />
             <span class="cursor-blink">▋</span>
           </div>
@@ -465,7 +486,7 @@ async function summarize() {
           <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm bg-linear-to-br from-cape-cod-700 to-cape-cod-900 text-white border border-cape-cod-600/50 shadow-md">
             <i class="pi pi-sparkles" />
           </div>
-          <div class="max-w-[78%] p-4 rounded-2xl text-[0.9375rem] leading-relaxed bg-white/5 border border-white/10 rounded-tl-md w-64">
+          <div class="max-w-[78%] p-4 rounded-2xl text-[0.9375rem] leading-relaxed bg-cape-cod-950/60 border border-white/8 rounded-tl-md w-64">
             <Skeleton height="0.875rem" width="60%" class="mb-2" />
             <Skeleton height="0.875rem" class="mb-2" />
             <Skeleton height="0.875rem" width="80%" />
@@ -495,32 +516,40 @@ async function summarize() {
     </Transition>
 
     <!-- Input -->
-    <div class="p-5 flex flex-col gap-3 shrink-0 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-200 hover:bg-white/10 hover:border-cape-cod-600/30">
+    <div class="p-6 shrink-0">
+      <div class="max-w-4xl mx-auto relative group">
+        <div class="absolute -inset-0.5 bg-linear-to-r from-blue-600/20 to-indigo-600/20 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+        <div class="relative bg-zinc-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
       <Textarea
         v-model="inputText"
         placeholder="Ej: Explicame el algoritmo de Dijkstra con el ejemplo del apunte... (Ctrl+Enter para enviar)"
         :rows="3"
-        class="w-full bg-white/5! border border-white/10! rounded-xl text-cape-cod-50 text-[0.9375rem] leading-relaxed transition-colors duration-200 resize-none hover:border-cape-cod-500! focus:border-cape-cod-400! focus:shadow-[0!_0_0_3px_rgba(160,168,171,0.15)]"
+        class="w-full !bg-transparent !border-none !rounded-none text-zinc-200 text-[0.92rem] leading-relaxed min-h-[118px] p-5 placeholder:!text-zinc-600"
         :disabled="streaming"
         auto-resize
         @keydown="handleKeydown"
       />
-      <div class="flex items-center justify-between">
-        <span class="text-xs text-cape-cod-500 hidden sm:flex items-center gap-1.5">
-          <i class="pi pi-info-circle" /> Ctrl + Enter
-        </span>
-        <span class="text-[0.72rem] text-cape-cod-500 transition-colors sm:ml-auto mr-4" :class="{ 'text-yellow-400': charCount > CHAR_LIMIT * 0.85, 'text-red-400 font-semibold': charCount >= CHAR_LIMIT }">
+      <div class="flex items-center justify-between px-5 py-3 bg-black/20 border-t border-white/5">
+        <div class="flex items-center gap-4">
+          <button class="p-2 text-zinc-500 hover:text-zinc-300 transition-colors border-none bg-transparent">
+            <i class="pi pi-paperclip" />
+          </button>
+          <span class="text-[0.64rem] text-zinc-600 font-medium transition-colors" :class="{ 'text-yellow-400': charCount > CHAR_LIMIT * 0.85, 'text-red-400 font-semibold': charCount >= CHAR_LIMIT }">
           {{ charCount }} / {{ CHAR_LIMIT }}
         </span>
+        </div>
         <Button
           label="Enviar"
           icon="pi pi-send"
           :loading="loading || streaming"
           :disabled="!inputText.trim() || streaming"
-          class="bg-linear-to-br from-cape-cod-600 to-cape-cod-800 border-none! font-semibold! hover:opacity-90! hover:-translate-y-px transition-all px-5 py-2 rounded-lg! text-white"
+          class="!bg-blue-600 hover:!bg-blue-500 !border-none !font-semibold !text-white !px-5 !py-2 !rounded-xl transition-all"
           @click="handleSend"
         />
       </div>
+        </div>
+      </div>
+      <p class="text-center mt-3 text-[0.6rem] text-zinc-700 font-medium tracking-[0.08em] uppercase">LlamaIndex · Gemini 1.5 Flash · Qdrant · FastAPI · Vue 3 + PrimeVue</p>
     </div>
 
   </div>

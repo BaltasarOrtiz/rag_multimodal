@@ -51,7 +51,7 @@ import SettingsPanel from '@/components/SettingsPanel.vue'
 
 .settings-icon {
   font-size: 1.375rem;
-  color: var(--cyan-400);
+  color: var(--text-secondary);
 }
 
 .settings-title {

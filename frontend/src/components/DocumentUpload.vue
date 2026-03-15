@@ -55,13 +55,9 @@ function formatSize(bytes: number) {
 </script>
 
 <template>
-  <div class="p-5 flex flex-col gap-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-200 hover:bg-white/10 hover:border-cape-cod-600/30">
-    <div class="flex items-center gap-2.5 text-sm font-semibold text-cape-cod-400 uppercase tracking-wide flex-wrap">
-      <i class="pi pi-cloud-upload text-cape-cod-400 text-base" />
-      <h3>Documentos</h3>
-      <span v-if="collectionStore.activeCollection" class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[0.7rem] font-semibold text-cape-cod-400 bg-cape-cod-400/10 border border-cape-cod-400/25 normal-case tracking-normal">
-        <i class="pi pi-th-large text-[0.6rem] text-cape-cod-400" /> {{ collectionStore.activeCollection }}
-      </span>
+  <div class="flex flex-col gap-5">
+    <div v-if="collectionStore.activeCollection" class="hidden items-center gap-1.5 text-[0.7rem] font-semibold text-cape-cod-400 bg-cape-cod-400/10 border border-cape-cod-400/20 rounded-full px-2.5 py-1 self-start">
+      <i class="pi pi-th-large text-[0.6rem]" /> {{ collectionStore.activeCollection }}
     </div>
 
     <FileUpload
@@ -74,16 +70,28 @@ function formatSize(bytes: number) {
       custom-upload
       @select="onFileSelect"
       :pt="{
-        root: { class: 'w-full !bg-transparent !border !border-dashed !border-white/10 !rounded-xl transition-colors duration-200 hover:!border-cape-cod-500' },
-        buttonbar: { class: '!bg-transparent !border-none !border-b !border-white/10 !px-3.5 !py-2.5' },
+        root: { class: 'w-full !bg-transparent !border !border-dashed !border-white/10 !rounded-2xl transition-colors duration-200 hover:!border-blue-500/40' },
+        buttonbar: { class: '!bg-transparent !border-none !px-0 !py-0 !mb-4' },
         content: { class: '!p-0' },
       }"
     >
+      <template #header="{ chooseCallback }">
+        <button
+          class="w-full py-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-3 text-sm font-semibold text-zinc-200 hover:bg-white/10 transition-all"
+          @click="chooseCallback()"
+        >
+          <i class="pi pi-plus text-xs" />
+          Choose Files
+        </button>
+      </template>
+
       <template #empty>
-        <div class="flex flex-col items-center gap-2 p-8 text-cape-cod-500">
-          <i class="pi pi-file-arrow-up text-4xl text-cape-cod-500 opacity-60" />
-          <p class="text-[0.875rem] font-medium text-cape-cod-400">Arrastrá PDFs, imágenes o texto</p>
-          <p class="text-xs text-cape-cod-500">Máx. 50 MB por archivo</p>
+        <div class="flex flex-col items-center justify-center gap-2 py-10 px-6 text-center text-zinc-500">
+          <div class="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mb-1">
+            <i class="pi pi-cloud-upload text-lg opacity-75" />
+          </div>
+          <p class="text-[0.92rem] font-medium text-zinc-300">Arrastrá PDFs, imágenes o texto</p>
+          <p class="text-[0.64rem] text-zinc-600 uppercase">Máx. 50 MB por archivo</p>
         </div>
       </template>
     </FileUpload>
@@ -119,16 +127,14 @@ function formatSize(bytes: number) {
       <span>No hay documentos cargados</span>
     </div>
 
-    <Button
-      icon="pi pi-refresh"
-      label="Actualizar lista"
-      severity="secondary"
-      text
-      size="small"
-      class="self-start !text-cape-cod-500 hover:!text-cape-cod-400"
-      :loading="loading"
+    <button
+      class="w-full flex items-center justify-center gap-2 text-[0.62rem] font-bold tracking-[0.14em] uppercase text-zinc-500 hover:text-zinc-300 transition-colors py-2 border-none bg-transparent"
+      :disabled="loading"
       @click="fetchDocuments"
-    />
+    >
+      <i class="pi pi-refresh text-[0.7rem]" />
+      Actualizar lista
+    </button>
   </div>
 </template>
 

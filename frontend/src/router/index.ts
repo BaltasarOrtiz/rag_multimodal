@@ -14,6 +14,11 @@ const router = createRouter({
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),
     },
+    {
+      path: '/eval',
+      name: 'eval',
+      component: () => import('@/views/EvalView.vue'),
+    },
   ],
 })
 

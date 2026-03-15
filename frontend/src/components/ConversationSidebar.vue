@@ -124,13 +124,15 @@ function truncate(text: string, max = 28): string {
 
 
 <template>
-  <aside 
-    class="w-[260px] min-w-[260px] bg-black/40 border-r border-white/5 flex flex-col relative transition-all duration-300 ease-in-out shrink-0 z-[200] md:relative fixed top-16 md:top-0 bottom-0 left-0"
-    :class="{ 'w-10 min-w-[40px] md:w-10 md:min-w-[40px] -translate-x-[260px] md:translate-x-0': collapsed }"
+  <aside
+    class="bg-[#0f0f0f] border-r border-white/6 flex flex-col transition-all duration-300 ease-in-out shrink-0 z-[200] fixed md:static top-16 md:top-0 bottom-0 left-0"
+    :class="collapsed
+      ? 'w-[84vw] max-w-[300px] -translate-x-full md:translate-x-0 md:w-[260px] md:min-w-[260px]'
+      : 'w-[84vw] max-w-[300px] translate-x-0 md:w-[260px] md:min-w-[260px]'"
   >
-    <!-- Toggle button siempre visible -->
+    <!-- Toggle button en móvil -->
     <button 
-      class="absolute top-3 -right-3.5 z-10 w-7 h-7 rounded-full bg-cape-cod-900 border border-white/10 text-cape-cod-500 cursor-pointer flex items-center justify-center text-[0.625rem] transition-colors hover:text-cape-cod-300 hover:border-white/20 md:right-[-14px] right-[-40px] md:top-3 top-1/2 md:translate-y-0 -translate-y-1/2" 
+      class="md:hidden absolute top-3 -right-3.5 z-10 w-7 h-7 rounded-full bg-[#0f0f0f] border border-white/10 text-zinc-500 cursor-pointer flex items-center justify-center text-[0.625rem] transition-colors hover:text-zinc-300 hover:border-white/20" 
       :title="collapsed ? 'Expandir' : 'Colapsar'" 
       @click="collapsed = !collapsed"
     >
@@ -139,25 +141,26 @@ function truncate(text: string, max = 28): string {
 
     <!-- Contenido (oculto cuando collapsed) -->
     <div class="flex-1 flex flex-col overflow-hidden transition-opacity duration-200" :class="{ 'opacity-0 pointer-events-none': collapsed }">
+      <div class="p-3.5">
+        <button
+          class="w-full flex items-center justify-between px-3.5 py-2.5 bg-zinc-900 border border-white/10 rounded-xl hover:bg-zinc-800 transition-colors"
+          @click="store.createConversation()"
+        >
+          <span class="text-sm font-medium text-zinc-300">Nueva conversación</span>
+          <i class="pi pi-plus text-xs text-zinc-500" />
+        </button>
+      </div>
+
       <!-- Header -->
-      <div class="flex items-center justify-between px-3 pt-3 pb-2 shrink-0">
-        <span class="text-[0.625rem] font-semibold tracking-widest text-cape-cod-500 uppercase">Conversaciones</span>
+      <div class="flex items-center justify-between px-3 pt-1 pb-2 shrink-0">
+        <span class="text-[0.6rem] font-bold tracking-[0.16em] text-zinc-600 uppercase">Conversaciones</span>
         <div class="flex gap-0.5">
-          <Button
-            icon="pi pi-plus"
-            text
-            rounded
-            size="small"
-            class="!text-cape-cod-500 !w-7 !h-7 !p-0 hover:!text-cape-cod-300"
-            title="Nueva conversación"
-            @click="store.createConversation()"
-          />
           <Button
             icon="pi pi-folder-plus"
             text
             rounded
             size="small"
-            class="!text-cape-cod-500 !w-7 !h-7 !p-0 hover:!text-cape-cod-300"
+            class="!text-zinc-500 !w-7 !h-7 !p-0 hover:!text-zinc-300"
             title="Nueva carpeta"
             @click="showFolderInput = !showFolderInput"
           />
@@ -166,7 +169,7 @@ function truncate(text: string, max = 28): string {
 
       <!-- Crear carpeta inline -->
       <Transition name="slide-down">
-        <div v-if="showFolderInput" class="px-3 py-2 border-b border-white/5 flex flex-col gap-2">
+        <div v-if="showFolderInput" class="px-3 py-2 border-b border-white/8 flex flex-col gap-2">
           <div class="flex gap-1.5 flex-wrap">
             <button
               v-for="color in FOLDER_COLORS"
@@ -180,27 +183,27 @@ function truncate(text: string, max = 28): string {
           <div class="flex gap-1 items-center">
             <input
               v-model="newFolderName"
-              class="flex-1 bg-white/5 border border-white/10 rounded-md text-cape-cod-50 text-[0.8125rem] px-2 py-1 outline-none focus:border-cape-cod-400"
+              class="flex-1 bg-white/5 border border-white/10 rounded-md text-zinc-200 text-[0.8125rem] px-2 py-1 outline-none focus:border-zinc-500"
               placeholder="Nombre de carpeta"
               @keydown.enter="confirmCreateFolder"
               @keydown.esc="showFolderInput = false"
             />
-            <Button icon="pi pi-check" text rounded size="small" class="!text-green-400 !w-7 !h-7 !p-0" @click="confirmCreateFolder" />
+            <Button icon="pi pi-check" text rounded size="small" class="!text-emerald-400 !w-7 !h-7 !p-0" @click="confirmCreateFolder" />
           </div>
         </div>
       </Transition>
 
       <!-- Lista de conversaciones y carpetas -->
-      <div class="flex-1 overflow-y-auto py-1 custom-scrollbar">
+      <div class="flex-1 overflow-y-auto py-1 custom-scrollbar px-1.5">
 
         <!-- Conversaciones sin carpeta -->
         <template v-for="conv in noneConversations" :key="conv.id">
           <div
-            class="flex items-center gap-2 px-3 py-2 cursor-pointer border-l-2 transition-colors min-h-[36px] group"
+            class="flex items-center gap-2 px-2.5 py-2 cursor-pointer rounded-lg transition-colors min-h-[36px] group"
             :class="[
               store.activeId === conv.id
-                ? 'bg-cape-cod-400/10 border-cape-cod-400'
-                : 'border-transparent hover:bg-white/5'
+                ? 'bg-white/6 border-l-2 border-l-blue-500'
+                : 'hover:bg-white/5'
             ]"
             @click="store.setActive(conv.id)"
           >
@@ -216,10 +219,10 @@ function truncate(text: string, max = 28): string {
               />
             </template>
             <template v-else>
-              <i class="pi pi-comments text-[0.75rem] text-cape-cod-500 shrink-0" />
-              <span class="flex-1 text-[0.8125rem] whitespace-nowrap overflow-hidden text-ellipsis min-w-0" :class="store.activeId === conv.id ? 'text-cape-cod-300' : 'text-cape-cod-400'">{{ truncate(conv.title) }}</span>
+              <i class="pi pi-comments text-[0.72rem] text-zinc-600 shrink-0" />
+              <span class="flex-1 text-[0.8125rem] whitespace-nowrap overflow-hidden text-ellipsis min-w-0" :class="store.activeId === conv.id ? 'text-zinc-200' : 'text-zinc-500'">{{ truncate(conv.title) }}</span>
               <i v-if="conv.pinned" class="pi pi-bookmark text-[0.625rem] text-yellow-500 shrink-0" />
-              <button class="hidden group-hover:flex items-center justify-center p-1 rounded bg-transparent border-none text-cape-cod-500 hover:text-cape-cod-300 hover:bg-white/5 shrink-0 text-[0.75rem]" @click.stop="openContextMenu($event, conv.id)">
+              <button class="hidden group-hover:flex items-center justify-center p-1 rounded bg-transparent border-none text-zinc-600 hover:text-zinc-300 hover:bg-white/5 shrink-0 text-[0.75rem]" @click.stop="openContextMenu($event, conv.id)">
                 <i class="pi pi-ellipsis-v" />
               </button>
             </template>
@@ -229,7 +232,7 @@ function truncate(text: string, max = 28): string {
         <!-- Carpetas -->
         <template v-for="folder in store.folders" :key="folder.id">
           <!-- Header de carpeta -->
-          <div class="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors hover:bg-white/5 group" @click="store.toggleFolderCollapsed(folder.id)">
+          <div class="flex items-center gap-2 px-2.5 py-2 cursor-pointer transition-colors hover:bg-white/5 rounded-lg group" @click="store.toggleFolderCollapsed(folder.id)">
             <i class="pi pi-folder text-[0.875rem] shrink-0" :style="{ color: folder.color }" />
             <template v-if="renamingFolderId === folder.id">
               <input
@@ -242,13 +245,13 @@ function truncate(text: string, max = 28): string {
               />
             </template>
             <template v-else>
-              <span class="flex-1 text-[0.8125rem] text-cape-cod-300 font-medium whitespace-nowrap overflow-hidden text-ellipsis min-w-0">{{ truncate(folder.name, 22) }}</span>
+              <span class="flex-1 text-[0.8125rem] text-zinc-300 font-medium whitespace-nowrap overflow-hidden text-ellipsis min-w-0">{{ truncate(folder.name, 22) }}</span>
             </template>
             <i
-              class="pi text-[0.625rem] text-cape-cod-500 shrink-0"
+              class="pi text-[0.625rem] text-zinc-600 shrink-0"
               :class="folder.collapsed ? 'pi-chevron-right' : 'pi-chevron-down'"
             />
-            <button class="hidden group-hover:flex items-center justify-center p-1 rounded bg-transparent border-none text-cape-cod-500 hover:text-cape-cod-300 hover:bg-white/5 shrink-0 text-[0.75rem]" @click.stop="openFolderMenu($event, folder.id)">
+            <button class="hidden group-hover:flex items-center justify-center p-1 rounded bg-transparent border-none text-zinc-600 hover:text-zinc-300 hover:bg-white/5 shrink-0 text-[0.75rem]" @click.stop="openFolderMenu($event, folder.id)">
               <i class="pi pi-ellipsis-v" />
             </button>
           </div>
@@ -259,11 +262,11 @@ function truncate(text: string, max = 28): string {
               <div
                 v-for="conv in (store.conversationsByFolder[folder.id] ?? [])"
                 :key="conv.id"
-                class="flex items-center gap-2 pl-6 pr-3 py-2 cursor-pointer border-l-2 transition-colors min-h-[36px] group"
+                class="flex items-center gap-2 pl-6 pr-3 py-2 cursor-pointer rounded-lg transition-colors min-h-[36px] group"
                 :class="[
                   store.activeId === conv.id
-                    ? 'bg-cape-cod-400/10 border-cape-cod-400'
-                    : 'border-transparent hover:bg-white/5'
+                    ? 'bg-white/6 border-l-2 border-l-blue-500'
+                    : 'hover:bg-white/5'
                 ]"
                 @click="store.setActive(conv.id)"
               >
@@ -279,10 +282,10 @@ function truncate(text: string, max = 28): string {
                   />
                 </template>
                 <template v-else>
-                  <i class="pi pi-comments text-[0.75rem] text-cape-cod-500 shrink-0" />
-                  <span class="flex-1 text-[0.8125rem] whitespace-nowrap overflow-hidden text-ellipsis min-w-0" :class="store.activeId === conv.id ? 'text-cape-cod-300' : 'text-cape-cod-400'">{{ truncate(conv.title) }}</span>
+                  <i class="pi pi-comments text-[0.75rem] text-zinc-600 shrink-0" />
+                  <span class="flex-1 text-[0.8125rem] whitespace-nowrap overflow-hidden text-ellipsis min-w-0" :class="store.activeId === conv.id ? 'text-zinc-200' : 'text-zinc-500'">{{ truncate(conv.title) }}</span>
                   <i v-if="conv.pinned" class="pi pi-bookmark text-[0.625rem] text-yellow-500 shrink-0" />
-                  <button class="hidden group-hover:flex items-center justify-center p-1 rounded bg-transparent border-none text-cape-cod-500 hover:text-cape-cod-300 hover:bg-white/5 shrink-0 text-[0.75rem]" @click.stop="openContextMenu($event, conv.id)">
+                  <button class="hidden group-hover:flex items-center justify-center p-1 rounded bg-transparent border-none text-zinc-600 hover:text-zinc-300 hover:bg-white/5 shrink-0 text-[0.75rem]" @click.stop="openContextMenu($event, conv.id)">
                     <i class="pi pi-ellipsis-v" />
                   </button>
                 </template>
@@ -291,6 +294,16 @@ function truncate(text: string, max = 28): string {
           </Transition>
         </template>
 
+      </div>
+
+      <div class="px-3 py-3 border-t border-white/6">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-[0.65rem] font-bold text-zinc-300">JD</div>
+          <div class="min-w-0">
+            <p class="m-0 text-[0.8rem] text-zinc-300 leading-tight truncate">John Doe</p>
+            <p class="m-0 text-[0.62rem] text-zinc-500 leading-tight uppercase tracking-wide">Pro Plan</p>
+          </div>
+        </div>
       </div>
     </div>
 

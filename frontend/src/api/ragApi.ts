@@ -16,6 +16,8 @@ import type {
   CollectionCreateRequest,
   RagStreamError,
   RagConfig,
+  EvalRequest,
+  EvalStatus,
 } from '@/types/rag'
 
 /** Construye un RagStreamError genérico cuando no hay payload estructurado */
@@ -125,6 +127,18 @@ export const ragApi = {
   /** POST /feedback */
   submitFeedback(payload: FeedbackRequest): Promise<MessageResponse> {
     return api.post<MessageResponse>('/feedback', payload).then(r => r.data)
+  },
+
+  // ── Evaluación ─────────────────────────────────────────────
+
+  /** POST /eval — inicia evaluación en background */
+  startEval(payload: EvalRequest): Promise<{ eval_id: string; message: string }> {
+    return api.post('/eval', payload).then(r => r.data)
+  },
+
+  /** GET /eval/:evalId — estado y resultados */
+  getEvalStatus(evalId: string): Promise<EvalStatus> {
+    return api.get<EvalStatus>(`/eval/${encodeURIComponent(evalId)}`).then(r => r.data)
   },
 
   /** GET /config */

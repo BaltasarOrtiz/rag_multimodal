@@ -15,9 +15,27 @@ from llama_index.core.vector_stores.types import (
 )
 from llama_index.core.indices.query.query_transform import HyDEQueryTransform
 from llama_index.core.query_engine import TransformQueryEngine
+from llama_index.core.base.base_retriever import BaseRetriever
+from llama_index.core.chat_engine import CondensePlusContextChatEngine
 
 from config import settings as app_settings
 from rag.models import SourceInfo
+
+
+# ── HyDE Retriever wrapper ────────────────────────────────────
+class _HyDERetriever(BaseRetriever):
+    """Wrapper que aplica HyDEQueryTransform antes de recuperar nodos.
+    Permite usar HyDE en chat engines (CondensePlusContextChatEngine),
+    donde el TransformQueryEngine no aplica directamente.
+    """
+    def __init__(self, base_retriever: BaseRetriever) -> None:
+        self._base = base_retriever
+        self._hyde = HyDEQueryTransform(include_original=True)
+        super().__init__()
+
+    def _retrieve(self, query_bundle):
+        transformed = self._hyde(query_bundle)
+        return self._base.retrieve(transformed)
 
 
 # ── Error classification ──────────────────────────────────────
@@ -193,9 +211,11 @@ def get_or_create_chat_engine(
     session_id: str,
     top_k: int = 3,
     metadata_filters: Optional[MetadataFilters] = None,
+    use_hyde: bool = False,
 ):
-    """Obtiene o crea un chat engine con memoria y reranking para la sesión dada."""
-    cache_key = f"{session_id}:{top_k}"
+    """Obtiene o crea un chat engine con memoria, reranking y HyDE opcional."""
+    apply_hyde = use_hyde or app_settings.enable_hyde
+    cache_key = f"{session_id}:{top_k}:{apply_hyde}"
     if cache_key not in _CHAT_ENGINES:
         postprocessors = []
         reranker = _get_reranker(top_n=top_k)
@@ -203,21 +223,34 @@ def get_or_create_chat_engine(
             postprocessors.append(reranker)
 
         effective_mode = _effective_query_mode(index)
-        kwargs: dict = dict(
-            chat_mode="condense_plus_context",
-            memory=ChatMemoryBuffer.from_defaults(token_limit=4096),
-            # Recuperar más candidatos para que el reranker tenga margen
-            similarity_top_k=top_k * 3 if reranker else top_k,
+        similarity_top_k = top_k * 3 if reranker else top_k
+
+        retriever_kwargs: dict = dict(
+            similarity_top_k=similarity_top_k,
             vector_store_query_mode=effective_mode,
-            response_mode="compact",
-            node_postprocessors=postprocessors,
         )
         if effective_mode == VectorStoreQueryMode.HYBRID:
-            kwargs["alpha"] = app_settings.hybrid_alpha
+            retriever_kwargs["alpha"] = app_settings.hybrid_alpha
         if metadata_filters:
-            kwargs["filters"] = metadata_filters
+            retriever_kwargs["filters"] = metadata_filters
 
-        _CHAT_ENGINES[cache_key] = index.as_chat_engine(**kwargs)
+        base_retriever = index.as_retriever(**retriever_kwargs)
+
+        if apply_hyde:
+            try:
+                retriever = _HyDERetriever(base_retriever)
+                print("🔮 HyDE activado para chat engine")
+            except Exception as exc:
+                print(f"⚠️  HyDE no disponible para chat ({exc}). Usando retriever estándar.")
+                retriever = base_retriever
+        else:
+            retriever = base_retriever
+
+        _CHAT_ENGINES[cache_key] = CondensePlusContextChatEngine.from_defaults(
+            retriever=retriever,
+            memory=ChatMemoryBuffer.from_defaults(token_limit=4096),
+            node_postprocessors=postprocessors,
+        )
     return _CHAT_ENGINES[cache_key]
 
 
@@ -315,14 +348,15 @@ async def chat_rag_stream(
     message: str,
     top_k: int = 3,
     file_type_filter: Optional[str] = None,
+    use_hyde: bool = False,
 ) -> AsyncGenerator[dict, None]:
     """
-    Genera eventos SSE para el chat multi-turn con reranking.
+    Genera eventos SSE para el chat multi-turn con reranking y HyDE opcional.
     Envía tokens con event='token' y al final sources con event='sources'.
     """
     loop = asyncio.get_event_loop()
     filters = _build_filters(file_type_filter)
-    engine = get_or_create_chat_engine(index, session_id, top_k, metadata_filters=filters)
+    engine = get_or_create_chat_engine(index, session_id, top_k, metadata_filters=filters, use_hyde=use_hyde)
     try:
         streaming_resp = await loop.run_in_executor(None, engine.stream_chat, message)
     except Exception as exc:
@@ -374,10 +408,11 @@ def chat_rag(
     message: str,
     top_k: int = 3,
     file_type_filter: Optional[str] = None,
+    use_hyde: bool = False,
 ) -> dict:
     """Chat multi-turn sin streaming (fallback)."""
     filters = _build_filters(file_type_filter)
-    engine = get_or_create_chat_engine(index, session_id, top_k, metadata_filters=filters)
+    engine = get_or_create_chat_engine(index, session_id, top_k, metadata_filters=filters, use_hyde=use_hyde)
     response = engine.chat(message)
     source_nodes = getattr(response, "source_nodes", None) or []
     return {

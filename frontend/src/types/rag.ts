@@ -140,6 +140,50 @@ export interface RagStreamError {
   suggestion: string
 }
 
+// ── Evaluación RAG ────────────────────────────────────────────
+
+export interface EvalQuestion {
+  question: string
+  ground_truth: string
+}
+
+export interface EvalRequest {
+  questions: EvalQuestion[]
+  top_k?: number
+  collection?: string
+}
+
+export interface EvalMetrics {
+  faithfulness: number
+  answer_relevancy: number
+  context_recall: number
+  context_precision: number
+}
+
+export interface EvalQuestionResult {
+  question: string
+  answer: string
+  ground_truth: string
+  faithfulness: number
+  answer_relevancy: number
+  context_recall: number
+  context_precision: number
+  nodes_retrieved: number
+}
+
+export interface EvalStatus {
+  eval_id: string
+  status: 'running' | 'done' | 'failed'
+  timestamp: string
+  n_questions: number
+  top_k: number
+  questions_done: number
+  progress: number
+  metrics: EvalMetrics | null
+  results: EvalQuestionResult[] | null
+  error: string | null
+}
+
 // ── Configuración del backend ────────────────────────────
 
 export interface RagConfig {

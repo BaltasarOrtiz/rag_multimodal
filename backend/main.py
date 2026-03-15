@@ -33,11 +33,15 @@ from rag.models import (
     QueryRequest, QueryResponse, IngestRequest, IngestStatus,
     ChatRequest, ChatResponse, FeedbackRequest,
     CollectionCreateRequest, CollectionInfo, CollectionsResponse,
+    EvalRequest, EvalStatus, EvalMetrics, EvalQuestionResult,
 )
 
 # ── Globals ──────────────────────────────────────────────────
 INDEX = None
 MAX_UPLOAD_MB = settings.max_upload_mb
+
+# Trabajos de evaluación en memoria — {eval_id: dict}
+EVAL_JOBS: dict[str, dict] = {}
 
 # Cache de índices por colección — máx 50 entradas, TTL 30 min
 INDEX_CACHE: TTLCache = TTLCache(maxsize=50, ttl=1800)
@@ -480,6 +484,7 @@ async def chat_stream(
             payload.message,
             payload.top_k,
             file_type_filter=payload.file_type_filter,
+            use_hyde=settings.enable_hyde,
         ),
         sep="\n",
     )
@@ -505,6 +510,7 @@ async def chat(
         payload.message,
         payload.top_k,
         file_type_filter=payload.file_type_filter,
+        use_hyde=settings.enable_hyde,
     )
     return ChatResponse(**result)
 
@@ -565,13 +571,96 @@ def get_config():
 async def update_config(body: ConfigUpdate, _: None = Security(verify_api_key)):
     """Actualiza la configuración en memoria (sin reiniciar)."""
     changed_llm = False
+    changed_hyde = False
     for field, value in body.model_dump(exclude_none=True).items():
+        if field == "enable_hyde" and getattr(settings, field) != value:
+            changed_hyde = True
         setattr(settings, field, value)
         if field in ("llm_model", "embedding_model"):
             changed_llm = True
     if changed_llm:
         reinitialize_llm()
+    if changed_hyde:
+        # Invalidar cache de chat engines — el nuevo estado de HyDE debe aplicar
+        from rag.query import _CHAT_ENGINES
+        _CHAT_ENGINES.clear()
+        logger.info("Cache de chat engines invalidado por cambio en enable_hyde", enable_hyde=settings.enable_hyde)
     return {"ok": True}
+
+
+# ── Evaluación RAG ───────────────────────────────────────────
+
+@app.post("/eval", status_code=202)
+async def start_evaluation(
+    payload: EvalRequest,
+    background_tasks: BackgroundTasks,
+):
+    """Inicia una evaluación RAG en background. Retorna eval_id para consultar el estado."""
+    idx = _resolve_index(payload.collection)
+    if idx is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Index no disponible. Sube documentos y llama /ingest primero.",
+        )
+
+    eval_id = str(uuid.uuid4())
+    EVAL_JOBS[eval_id] = {
+        "eval_id": eval_id,
+        "status": "running",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "n_questions": len(payload.questions),
+        "top_k": payload.top_k,
+        "questions_done": 0,
+        "progress": 0,
+        "metrics": None,
+        "results": None,
+        "error": None,
+    }
+
+    def _run_eval(eval_id: str, questions, top_k: int, index):
+        from rag.eval import evaluate_question, aggregate_metrics
+        results = []
+        for i, q in enumerate(questions):
+            try:
+                r = evaluate_question(index, q.question, q.ground_truth, top_k)
+                results.append(r)
+            except Exception as exc:
+                logger.error("Error evaluando pregunta", question=q.question[:80], error=str(exc))
+                results.append({
+                    "question": q.question,
+                    "answer": f"Error: {str(exc)[:200]}",
+                    "ground_truth": q.ground_truth,
+                    "faithfulness": 0.0,
+                    "answer_relevancy": 0.0,
+                    "context_recall": 0.0,
+                    "context_precision": 0.0,
+                    "nodes_retrieved": 0,
+                })
+            EVAL_JOBS[eval_id].update({
+                "questions_done": i + 1,
+                "progress": int((i + 1) / len(questions) * 100),
+            })
+
+        metrics = aggregate_metrics(results)
+        EVAL_JOBS[eval_id].update({
+            "status": "done",
+            "progress": 100,
+            "metrics": metrics,
+            "results": results,
+        })
+        logger.info("Evaluación completada", eval_id=eval_id, n_questions=len(questions))
+
+    background_tasks.add_task(_run_eval, eval_id, payload.questions, payload.top_k, idx)
+    return {"eval_id": eval_id, "message": f"Evaluación iniciada con {len(payload.questions)} pregunta(s)."}
+
+
+@app.get("/eval/{eval_id}", response_model=EvalStatus)
+def get_eval_status(eval_id: str):
+    """Retorna el estado y resultados de una evaluación por su ID."""
+    job = EVAL_JOBS.get(eval_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Evaluación no encontrada.")
+    return job
 
 
 # ── Feedback de calidad ───────────────────────────────────────

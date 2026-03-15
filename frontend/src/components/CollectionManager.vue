@@ -81,13 +81,10 @@ onMounted(() => store.fetchCollections())
 </script>
 
 <template>
-  <div class="p-5 flex flex-col gap-3.5 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl transition-all duration-200 hover:bg-white/10 hover:border-cape-cod-600/30">
+  <div class="flex flex-col gap-3.5">
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2 text-xs font-semibold text-cape-cod-400 uppercase tracking-wide">
-        <i class="pi pi-th-large" />
-        <span>Base de conocimiento</span>
-      </div>
+      <span class="text-[0.7rem] font-semibold text-cape-cod-500 uppercase tracking-widest">Colecciones</span>
       <Button
         icon="pi pi-plus"
         size="small"

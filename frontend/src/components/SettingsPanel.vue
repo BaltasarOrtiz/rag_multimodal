@@ -104,6 +104,32 @@ function saveSlider(field: keyof RagConfig, value: unknown) {
   if (sliderTimer) clearTimeout(sliderTimer)
   sliderTimer = setTimeout(() => save({ [field]: value }), 500)
 }
+
+function saveHyde(value: boolean) {
+  save({ enable_hyde: value }).then(() => {
+    toast.add({
+      severity: 'info',
+      summary: `HyDE ${value ? 'activado' : 'desactivado'}`,
+      detail: value
+        ? 'El LLM generará un documento hipotético antes de buscar. Las sesiones de chat activas se han reiniciado para aplicar el cambio.'
+        : 'Las sesiones de chat activas se han reiniciado.',
+      life: 5000,
+    })
+  })
+}
+
+function saveSemanticChunking(value: boolean) {
+  save({ enable_semantic_chunking: value }).then(() => {
+    if (value) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Re-ingestión requerida',
+        detail: 'El chunking semántico solo se aplica en el próximo proceso de ingestión. Re-ingesta los documentos para activarlo.',
+        life: 7000,
+      })
+    }
+  })
+}
 </script>
 
 <template>
@@ -225,11 +251,11 @@ function saveSlider(field: keyof RagConfig, value: unknown) {
             <div class="toggle-row">
               <div class="toggle-info">
                 <span class="toggle-label">HyDE</span>
-                <span class="toggle-desc">Hypothetical Document Embedding</span>
+                <span class="toggle-desc">Genera un documento hipotético antes de buscar · Aplica de inmediato</span>
               </div>
               <ToggleSwitch
                 v-model="config.enable_hyde"
-                @change="saveField('enable_hyde', config.enable_hyde)"
+                @change="saveHyde(config.enable_hyde)"
               />
             </div>
 
@@ -237,13 +263,19 @@ function saveSlider(field: keyof RagConfig, value: unknown) {
             <div class="toggle-row">
               <div class="toggle-info">
                 <span class="toggle-label">Chunking semántico</span>
-                <span class="toggle-desc">Más preciso pero más lento en ingestión</span>
+                <span class="toggle-desc">Divide por significado en vez de tamaño fijo</span>
               </div>
               <ToggleSwitch
                 v-model="config.enable_semantic_chunking"
-                @change="saveField('enable_semantic_chunking', config.enable_semantic_chunking)"
+                @change="saveSemanticChunking(config.enable_semantic_chunking)"
               />
             </div>
+            <Transition name="fade">
+              <div v-if="config.enable_semantic_chunking" class="warning-box">
+                <i class="pi pi-refresh" />
+                <span>Requiere re-ingestión para aplicar el nuevo modo de chunking a los documentos existentes.</span>
+              </div>
+            </Transition>
           </div>
         </TabPanel>
 
@@ -304,8 +336,8 @@ function saveSlider(field: keyof RagConfig, value: unknown) {
 }
 
 :deep(.p-tabs .p-tab.p-tab-active) {
-  color: var(--cyan-400);
-  border-bottom-color: var(--cyan-400);
+  color: var(--text-secondary);
+  border-bottom-color: var(--text-secondary);
 }
 
 :deep(.p-tabs .p-tabpanels) {
@@ -342,7 +374,7 @@ function saveSlider(field: keyof RagConfig, value: unknown) {
 
 .alpha-hint {
   font-size: 0.75rem;
-  color: var(--cyan-400);
+  color: var(--text-secondary);
   font-weight: 400;
 }
 
@@ -358,7 +390,7 @@ function saveSlider(field: keyof RagConfig, value: unknown) {
 }
 
 :deep(.full-select .p-select:hover) {
-  border-color: rgba(34, 211, 238, 0.4);
+  border-color: rgba(160, 168, 171, 0.4);
 }
 
 :deep(.full-select .p-select-label) {
@@ -370,9 +402,9 @@ function saveSlider(field: keyof RagConfig, value: unknown) {
   align-items: center;
   gap: 0.375rem;
   font-size: 0.75rem;
-  color: var(--cyan-400);
-  background: rgba(34, 211, 238, 0.08);
-  border: 1px solid rgba(34, 211, 238, 0.2);
+  color: var(--text-secondary);
+  background: rgba(160, 168, 171, 0.08);
+  border: 1px solid rgba(160, 168, 171, 0.2);
   border-radius: 9999px;
   padding: 0.2rem 0.625rem;
   width: fit-content;
@@ -430,7 +462,7 @@ function saveSlider(field: keyof RagConfig, value: unknown) {
 .indent-field {
   margin-left: 1rem;
   padding-left: 1rem;
-  border-left: 2px solid rgba(34, 211, 238, 0.2);
+  border-left: 2px solid rgba(160, 168, 171, 0.2);
 }
 
 .rag-slider {

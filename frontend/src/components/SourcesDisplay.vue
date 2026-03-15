@@ -105,7 +105,7 @@ function handleImageLoad(filename: string, e: Event) {
 }
 
 .sources-header i {
-  color: var(--violet-400);
+  color: var(--text-secondary);
 }
 
 .sources-list {
@@ -125,11 +125,11 @@ function handleImageLoad(filename: string, e: Event) {
   align-items: center;
   gap: 0.375rem;
   padding: 0.3rem 0.75rem;
-  background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(160, 168, 171, 0.08);
+  border: 1px solid rgba(160, 168, 171, 0.2);
   border-radius: 9999px;
   font-size: 0.72rem;
-  color: var(--violet-400);
+  color: var(--text-secondary);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
@@ -137,7 +137,7 @@ function handleImageLoad(filename: string, e: Event) {
 }
 
 .source-chip:hover {
-  background: rgba(139, 92, 246, 0.15);
+  background: rgba(160, 168, 171, 0.14);
 }
 
 .source-name {
@@ -148,7 +148,7 @@ function handleImageLoad(filename: string, e: Event) {
 }
 
 .source-score {
-  background: rgba(139, 92, 246, 0.15);
+  background: rgba(160, 168, 171, 0.15);
   border-radius: 9999px;
   padding: 0 0.4rem;
   font-size: 0.65rem;
@@ -164,8 +164,8 @@ function handleImageLoad(filename: string, e: Event) {
 .chunk-preview {
   margin-top: 0.375rem;
   padding: 0.625rem 0.875rem;
-  background: rgba(139, 92, 246, 0.04);
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  background: rgba(160, 168, 171, 0.04);
+  border: 1px solid rgba(160, 168, 171, 0.12);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -207,7 +207,7 @@ function handleImageLoad(filename: string, e: Event) {
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem;
-  background: rgba(139, 92, 246, 0.06);
+  background: rgba(160, 168, 171, 0.06);
   border-radius: 6px;
   color: var(--text-muted);
   font-size: 0.8rem;
@@ -216,7 +216,7 @@ function handleImageLoad(filename: string, e: Event) {
 
 .image-placeholder i {
   font-size: 1.5rem;
-  color: var(--violet-400);
+  color: var(--text-secondary);
 }
 
 .native-badge {
@@ -224,9 +224,9 @@ function handleImageLoad(filename: string, e: Event) {
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: var(--cyan-400);
-  background: rgba(34, 211, 238, 0.1);
-  border: 1px solid rgba(34, 211, 238, 0.25);
+  color: var(--text-secondary);
+  background: rgba(160, 168, 171, 0.1);
+  border: 1px solid rgba(160, 168, 171, 0.25);
   border-radius: 9999px;
   padding: 0.125rem 0.5rem;
 }

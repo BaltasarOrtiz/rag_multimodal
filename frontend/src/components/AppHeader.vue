@@ -23,16 +23,16 @@ function onCollectionChange(name: string) {
 </script>
 
 <template>
-  <header class="sticky top-0 z-[100] bg-cape-cod-950/85 backdrop-blur-md border-b border-white/10">
-    <div class="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
+  <header class="sticky top-0 z-[100] h-16 border-b border-white/6 bg-[#0f0f0f]">
+    <div class="h-full px-4 md:px-6 flex items-center justify-between gap-4">
       <!-- Logo -->
-      <div class="flex items-center gap-3.5">
-        <div class="w-10 h-10 bg-gradient-to-br from-cape-cod-500 to-cape-cod-700 rounded-xl flex items-center justify-center text-lg text-white shadow-[0_0_20px_rgba(81,89,92,0.3)]">
+      <div class="flex items-center gap-3.5 min-w-0">
+        <div class="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-blue-900/30 shrink-0">
           <i class="pi pi-database" />
         </div>
-        <div class="flex flex-col leading-tight">
-          <span class="text-lg font-bold gradient-text">RAG Multimodal</span>
-          <span class="text-[0.6875rem] text-cape-cod-500 tracking-wider uppercase">LlamaIndex · Gemini · Qdrant</span>
+        <div class="flex flex-col leading-tight min-w-0">
+          <span class="text-base md:text-lg font-bold text-zinc-100 truncate">RAG Multimodal</span>
+          <span class="text-[0.6rem] md:text-[0.65rem] text-zinc-500 tracking-[0.18em] uppercase truncate">LlamaIndex · Gemini · Qdrant</span>
         </div>
       </div>
 
@@ -43,37 +43,51 @@ function onCollectionChange(name: string) {
         option-label="label"
         option-value="value"
         placeholder="Colección..."
-        class="hidden sm:block min-w-[160px] max-w-[220px] text-sm !bg-white/5 !border-white/10 !text-cape-cod-50 hover:!border-cape-cod-400/40 rounded-lg px-2 py-1"
+        class="hidden lg:block w-[270px] !bg-zinc-900 !border-white/10 rounded-full"
         :disabled="!collectionOptions.length"
         @change="onCollectionChange($event.value)"
+        :pt="{
+          label: { class: '!text-xs !text-zinc-200' },
+          dropdown: { class: '!text-zinc-500' }
+        }"
       >
         <template #value="slotProps">
-            <span v-if="slotProps.value" class="text-cape-cod-400 font-medium">{{ collectionOptions.find(o => o.value === slotProps.value)?.label }}</span>
-            <span v-else class="text-cape-cod-500">Colección...</span>
+          <span v-if="slotProps.value" class="text-zinc-300 text-xs">Colección: <strong class="font-medium">{{ collectionOptions.find(o => o.value === slotProps.value)?.label }}</strong></span>
+          <span v-else class="text-zinc-500 text-xs">Colección...</span>
         </template>
         <template #option="slotProps">
-             <div :class="{'text-cape-cod-400 bg-cape-cod-400/10': slotProps.option.value === collectionStore.activeCollection}">{{slotProps.option.label}}</div>
+             <div :class="{'text-zinc-100 bg-zinc-700/50': slotProps.option.value === collectionStore.activeCollection, 'text-zinc-300': slotProps.option.value !== collectionStore.activeCollection}">{{slotProps.option.label}}</div>
         </template>
       </Select>
 
       <!-- Acciones del header -->
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 ml-auto text-zinc-400">
+        <!-- Botón de evaluación -->
+        <Button
+          icon="pi pi-chart-bar"
+          text
+          rounded
+          class="!text-zinc-500 hover:!text-zinc-200 shrink-0 !w-8 !h-8"
+          title="Evaluación RAG"
+          @click="router.push('/eval')"
+        />
+
         <!-- Botón de configuraciones -->
         <Button
           icon="pi pi-cog"
           text
           rounded
-          class="!text-cape-cod-500 hover:!text-cape-cod-400 shrink-0"
+          class="!text-zinc-500 hover:!text-zinc-200 shrink-0 !w-8 !h-8"
           title="Configuraciones"
           @click="router.push('/settings')"
         />
 
         <!-- Status badge -->
         <div 
-          class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[0.8125rem] font-medium border border-white/10 bg-white/5 transition-all duration-300"
+          class="hidden md:flex items-center gap-2 px-3 py-1 rounded-full text-[0.62rem] font-bold uppercase tracking-wide border"
           :class="{
             'border-amber-500/30 bg-amber-500/10 text-amber-500': status === 'loading',
-            'border-emerald-500/30 bg-emerald-500/10 text-emerald-500': status === 'ok',
+            'border-emerald-500/30 bg-emerald-500/10 text-emerald-400': status === 'ok',
             'border-red-500/30 bg-red-500/10 text-red-500': status === 'error'
           }"
         >
@@ -85,11 +99,11 @@ function onCollectionChange(name: string) {
               'bg-red-500': status === 'error'
             }"
           />
-          <span v-if="status === 'loading'">Conectando…</span>
+          <span v-if="status === 'loading'">API loading</span>
           <span v-else-if="status === 'ok'">
-            API OK <span class="text-cape-cod-500">·</span> Index {{ indexLoaded ? 'cargado' : 'vacío' }}
+            API {{ indexLoaded ? 'online' : 'index vacío' }}
           </span>
-          <span v-else>API sin conexión</span>
+          <span v-else>API offline</span>
         </div>
       </div>
     </div>

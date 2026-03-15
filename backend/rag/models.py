@@ -99,3 +99,47 @@ class IngestStatus(BaseModel):
     collection: Optional[str] = None
     total_docs: Optional[int] = 0
     processed_docs: Optional[int] = 0
+
+
+# ── Evaluación RAGAS ──────────────────────────────────────────
+
+class EvalQuestion(BaseModel):
+    question: str = Field(min_length=1)
+    ground_truth: str = Field(min_length=1)
+
+
+class EvalRequest(BaseModel):
+    questions: list[EvalQuestion] = Field(min_length=1)
+    top_k: int = Field(default=5, ge=1, le=20)
+    collection: Optional[str] = None
+
+
+class EvalQuestionResult(BaseModel):
+    question: str
+    answer: str
+    ground_truth: str
+    faithfulness: float
+    answer_relevancy: float
+    context_recall: float
+    context_precision: float
+    nodes_retrieved: int
+
+
+class EvalMetrics(BaseModel):
+    faithfulness: float
+    answer_relevancy: float
+    context_recall: float
+    context_precision: float
+
+
+class EvalStatus(BaseModel):
+    eval_id: str
+    status: Literal["running", "done", "failed"]
+    timestamp: str
+    n_questions: int
+    top_k: int
+    questions_done: int
+    progress: int          # 0–100
+    metrics: Optional[EvalMetrics] = None
+    results: Optional[list[EvalQuestionResult]] = None
+    error: Optional[str] = None
