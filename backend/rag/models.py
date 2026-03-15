@@ -3,14 +3,14 @@ from typing import Optional, Literal
 import uuid
 
 
-# ── Colecciones ───────────────────────────────────────────────
+# ── Collections ───────────────────────────────────────────────
 
 class CollectionCreateRequest(BaseModel):
     name: str = Field(
         min_length=2,
         max_length=64,
         pattern=r'^[a-z0-9][a-z0-9_\-]*$',
-        description="Nombre de la colección (solo minúsculas, números, _ y -).",
+        description="Collection name (lowercase letters, numbers, _ and - only).",
     )
     description: str = Field(default="", max_length=256)
 
@@ -29,10 +29,10 @@ class CollectionsResponse(BaseModel):
 
 
 class FacultadDocSchema(BaseModel):
-    tema: str = Field(description="Tema principal del documento")
-    descripcion: str = Field(description="Resumen detallado del contenido")
-    elementos_visuales: str = Field(description="Diagramas, tablas o fórmulas identificadas")
-    explicacion: str = Field(description="Explicación paso a paso del concepto")
+    tema: str = Field(description="Main topic of the document")
+    descripcion: str = Field(description="Detailed summary of the content")
+    elementos_visuales: str = Field(description="Diagrams, tables or formulas identified")
+    explicacion: str = Field(description="Step-by-step explanation of the concept")
 
 
 class IngestRequest(BaseModel):
@@ -44,17 +44,17 @@ class QueryRequest(BaseModel):
     top_k: int = Field(default=3, ge=1, le=10)
     file_type_filter: Optional[str] = Field(
         default=None,
-        description="Filtrar por extensión de archivo: '.pdf', '.txt', '.md', etc.",
+        description="Filter by file extension: '.pdf', '.txt', '.md', etc.",
     )
     use_hyde: bool = Field(
         default=False,
-        description="Aplicar HyDE (Hypothetical Document Embeddings) antes de buscar.",
+        description="Apply HyDE (Hypothetical Document Embeddings) before searching.",
     )
 
 
 class SourceInfo(BaseModel):
     filename: str
-    text: str       # contenido del chunk (truncado)
+    text: str       # chunk content (truncated)
     score: float    # relevance score
 
 
@@ -71,7 +71,7 @@ class ChatRequest(BaseModel):
     top_k: int = Field(default=3, ge=1, le=10)
     file_type_filter: Optional[str] = Field(
         default=None,
-        description="Filtrar por extensión de archivo: '.pdf', '.txt', '.md', etc.",
+        description="Filter by file extension: '.pdf', '.txt', '.md', etc.",
     )
 
 
@@ -101,7 +101,7 @@ class IngestStatus(BaseModel):
     processed_docs: Optional[int] = 0
 
 
-# ── Evaluación RAGAS ──────────────────────────────────────────
+# ── RAGAS Evaluation ──────────────────────────────────────────
 
 class EvalQuestion(BaseModel):
     question: str = Field(min_length=1)
@@ -139,7 +139,7 @@ class EvalStatus(BaseModel):
     n_questions: int
     top_k: int
     questions_done: int
-    progress: int          # 0–100
+    progress: int          # 0-100
     metrics: Optional[EvalMetrics] = None
     results: Optional[list[EvalQuestionResult]] = None
     error: Optional[str] = None

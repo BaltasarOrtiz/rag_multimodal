@@ -6,10 +6,10 @@ import { useConversationStore, FOLDER_COLORS } from '@/stores/useConversationSto
 
 const store = useConversationStore()
 
-// ── Colapso del sidebar ───────────────────────────────────────
+// ── Sidebar collapse ───────────────────────────────────────
 const collapsed = defineModel<boolean>('collapsed', { default: false })
 
-// ── Crear carpeta inline ──────────────────────────────────────
+// ── Create folder inline ──────────────────────────────────────
 const showFolderInput = ref(false)
 const newFolderName = ref('')
 const newFolderColor = ref<string>(FOLDER_COLORS[0] ?? '#22d3ee')
@@ -23,7 +23,7 @@ function confirmCreateFolder() {
   showFolderInput.value = false
 }
 
-// ── Menú contextual de conversación ──────────────────────────
+// ── Conversation context menu ──────────────────────────────────────
 const contextMenu = ref<InstanceType<typeof Popover> | null>(null)
 const contextTarget = ref<HTMLElement | null>(null)
 const contextConvId = ref<string | null>(null)
@@ -37,7 +37,7 @@ function openContextMenu(event: MouseEvent, convId: string) {
   })
 }
 
-// ── Renombrar inline ──────────────────────────────────────────
+// ── Inline rename ──────────────────────────────────────────
 const renamingId = ref<string | null>(null)
 const renameValue = ref('')
 
@@ -58,7 +58,7 @@ function confirmRename(convId: string) {
   renamingId.value = null
 }
 
-// ── Mover a carpeta (submenu) ─────────────────────────────────
+// ── Move to folder (submenu) ─────────────────────────────────
 const moveMenu = ref<InstanceType<typeof Popover> | null>(null)
 
 function openMoveMenu(event: MouseEvent) {
@@ -74,7 +74,7 @@ function moveConv(folderId: string | null) {
   moveMenu.value?.hide()
 }
 
-// ── Carpetas: menú contextual ─────────────────────────────────
+// ── Folders: context menu ─────────────────────────────────
 const folderMenu = ref<InstanceType<typeof Popover> | null>(null)
 const folderMenuId = ref<string | null>(null)
 const renamingFolderId = ref<string | null>(null)
@@ -100,23 +100,23 @@ function confirmRenameFolder(folderId: string) {
 }
 
 function handleDeleteConv(convId: string) {
-  if (confirm('¿Eliminar esta conversación?')) {
+  if (confirm('Delete this conversation?')) {
     store.deleteConversation(convId)
   }
   contextMenu.value?.hide()
 }
 
 function handleDeleteFolder(folderId: string) {
-  if (confirm('¿Eliminar carpeta? Las conversaciones quedarán sin carpeta.')) {
+  if (confirm('Delete folder? Conversations will become unfoldered.')) {
     store.deleteFolder(folderId)
   }
   folderMenu.value?.hide()
 }
 
-// ── Lista de conversaciones sin carpeta ──────────────────────
+// ── List of conversations without a folder ──────────────────────
 const noneConversations = computed(() => store.conversationsByFolder['__none__'] ?? [])
 
-// ── Truncar título ────────────────────────────────────────────
+// ── Truncate title ────────────────────────────────────────────
 function truncate(text: string, max = 28): string {
   return text.length > max ? text.slice(0, max) + '…' : text
 }
@@ -130,30 +130,30 @@ function truncate(text: string, max = 28): string {
       ? 'w-[84vw] max-w-[300px] -translate-x-full md:translate-x-0 md:w-[260px] md:min-w-[260px]'
       : 'w-[84vw] max-w-[300px] translate-x-0 md:w-[260px] md:min-w-[260px]'"
   >
-    <!-- Toggle button en móvil -->
+    <!-- Toggle button on mobile -->
     <button 
       class="md:hidden absolute top-3 -right-3.5 z-10 w-7 h-7 rounded-full bg-[#0f0f0f] border border-white/10 text-zinc-500 cursor-pointer flex items-center justify-center text-[0.625rem] transition-colors hover:text-zinc-300 hover:border-white/20" 
-      :title="collapsed ? 'Expandir' : 'Colapsar'" 
+      :title="collapsed ? 'Expand' : 'Collapse'" 
       @click="collapsed = !collapsed"
     >
       <i :class="collapsed ? 'pi pi-chevron-right' : 'pi pi-chevron-left'" />
     </button>
 
-    <!-- Contenido (oculto cuando collapsed) -->
+    <!-- Content (hidden when collapsed) -->
     <div class="flex-1 flex flex-col overflow-hidden transition-opacity duration-200" :class="{ 'opacity-0 pointer-events-none': collapsed }">
       <div class="p-3.5">
         <button
           class="w-full flex items-center justify-between px-3.5 py-2.5 bg-zinc-900 border border-white/10 rounded-xl hover:bg-zinc-800 transition-colors"
           @click="store.createConversation()"
         >
-          <span class="text-sm font-medium text-zinc-300">Nueva conversación</span>
+          <span class="text-sm font-medium text-zinc-300">New conversation</span>
           <i class="pi pi-plus text-xs text-zinc-500" />
         </button>
       </div>
 
       <!-- Header -->
       <div class="flex items-center justify-between px-3 pt-1 pb-2 shrink-0">
-        <span class="text-[0.6rem] font-bold tracking-[0.16em] text-zinc-600 uppercase">Conversaciones</span>
+        <span class="text-[0.6rem] font-bold tracking-[0.16em] text-zinc-600 uppercase">Conversations</span>
         <div class="flex gap-0.5">
           <Button
             icon="pi pi-folder-plus"
@@ -161,13 +161,13 @@ function truncate(text: string, max = 28): string {
             rounded
             size="small"
             class="!text-zinc-500 !w-7 !h-7 !p-0 hover:!text-zinc-300"
-            title="Nueva carpeta"
+            title="New folder"
             @click="showFolderInput = !showFolderInput"
           />
         </div>
       </div>
 
-      <!-- Crear carpeta inline -->
+      <!-- Create folder inline -->
       <Transition name="slide-down">
         <div v-if="showFolderInput" class="px-3 py-2 border-b border-white/8 flex flex-col gap-2">
           <div class="flex gap-1.5 flex-wrap">
@@ -184,7 +184,7 @@ function truncate(text: string, max = 28): string {
             <input
               v-model="newFolderName"
               class="flex-1 bg-white/5 border border-white/10 rounded-md text-zinc-200 text-[0.8125rem] px-2 py-1 outline-none focus:border-zinc-500"
-              placeholder="Nombre de carpeta"
+              placeholder="Folder name"
               @keydown.enter="confirmCreateFolder"
               @keydown.esc="showFolderInput = false"
             />
@@ -193,10 +193,10 @@ function truncate(text: string, max = 28): string {
         </div>
       </Transition>
 
-      <!-- Lista de conversaciones y carpetas -->
+      <!-- Conversations and folders list -->
       <div class="flex-1 overflow-y-auto py-1 custom-scrollbar px-1.5">
 
-        <!-- Conversaciones sin carpeta -->
+        <!-- Conversations without folder -->
         <template v-for="conv in noneConversations" :key="conv.id">
           <div
             class="flex items-center gap-2 px-2.5 py-2 cursor-pointer rounded-lg transition-colors min-h-[36px] group"
@@ -229,9 +229,9 @@ function truncate(text: string, max = 28): string {
           </div>
         </template>
 
-        <!-- Carpetas -->
+        <!-- Folders -->
         <template v-for="folder in store.folders" :key="folder.id">
-          <!-- Header de carpeta -->
+          <!-- Folder header -->
           <div class="flex items-center gap-2 px-2.5 py-2 cursor-pointer transition-colors hover:bg-white/5 rounded-lg group" @click="store.toggleFolderCollapsed(folder.id)">
             <i class="pi pi-folder text-[0.875rem] shrink-0" :style="{ color: folder.color }" />
             <template v-if="renamingFolderId === folder.id">
@@ -256,7 +256,7 @@ function truncate(text: string, max = 28): string {
             </button>
           </div>
 
-          <!-- Conversaciones de la carpeta -->
+          <!-- Folder conversations -->
           <Transition name="folder-expand">
             <div v-show="!folder.collapsed" class="block">
               <div
@@ -307,31 +307,31 @@ function truncate(text: string, max = 28): string {
       </div>
     </div>
 
-    <!-- Popover menú contextual de conversación -->
+    <!-- Conversation context menu popover -->
     <Popover ref="contextMenu" class="conv-popover" :pt="{ content: { class: 'p-1 bg-cape-cod-900 border border-white/10 rounded-lg min-w-[160px]' } }">
       <div class="flex flex-col gap-0.5">
         <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="contextConvId && startRename(contextConvId, store.conversations.find(c => c.id === contextConvId)?.title ?? '')">
-          <i class="pi pi-pencil" /> Renombrar
+          <i class="pi pi-pencil" /> Rename
         </button>
         <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="contextConvId && store.togglePin(contextConvId); contextMenu?.hide()">
           <i class="pi pi-bookmark" />
-          {{ contextConvId && store.conversations.find(c => c.id === contextConvId)?.pinned ? 'Quitar pin' : 'Pinear' }}
+          {{ contextConvId && store.conversations.find(c => c.id === contextConvId)?.pinned ? 'Unpin' : 'Pin' }}
         </button>
         <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="openMoveMenu($event)">
-          <i class="pi pi-folder" /> Mover a carpeta <i class="pi pi-chevron-right ml-auto text-[0.7rem]" />
+          <i class="pi pi-folder" /> Move to folder <i class="pi pi-chevron-right ml-auto text-[0.7rem]" />
         </button>
         <div class="h-px bg-white/10 my-0.5 mx-2" />
         <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-red-400 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-red-400/10" @click="contextConvId && handleDeleteConv(contextConvId)">
-          <i class="pi pi-trash" /> Eliminar
+          <i class="pi pi-trash" /> Delete
         </button>
       </div>
     </Popover>
 
-    <!-- Submenu: mover a carpeta -->
+    <!-- Submenu: move to folder -->
     <Popover ref="moveMenu" class="conv-popover" :pt="{ content: { class: 'p-1 bg-cape-cod-900 border border-white/10 rounded-lg min-w-[160px]' } }">
       <div class="flex flex-col gap-0.5">
         <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="moveConv(null)">
-          <i class="pi pi-inbox" /> Sin carpeta
+          <i class="pi pi-inbox" /> No folder
         </button>
         <button
           v-for="folder in store.folders"
@@ -344,15 +344,15 @@ function truncate(text: string, max = 28): string {
       </div>
     </Popover>
 
-    <!-- Popover menú de carpeta -->
+    <!-- Folder menu popover -->
     <Popover ref="folderMenu" class="conv-popover" :pt="{ content: { class: 'p-1 bg-cape-cod-900 border border-white/10 rounded-lg min-w-[160px]' } }">
       <div class="flex flex-col gap-0.5">
         <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-cape-cod-300 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-white/5 hover:text-cape-cod-50" @click="folderMenuId && startRenameFolder(folderMenuId, store.folders.find(f => f.id === folderMenuId)?.name ?? '')">
-          <i class="pi pi-pencil" /> Renombrar
+          <i class="pi pi-pencil" /> Rename
         </button>
         <div class="h-px bg-white/10 my-0.5 mx-2" />
         <button class="flex items-center gap-2 px-3 py-2 bg-transparent border-none text-red-400 text-[0.8125rem] cursor-pointer rounded-md w-full text-left transition-colors hover:bg-red-400/10" @click="folderMenuId && handleDeleteFolder(folderMenuId)">
-          <i class="pi pi-trash" /> Eliminar carpeta
+          <i class="pi pi-trash" /> Delete folder
         </button>
       </div>
     </Popover>
@@ -360,7 +360,7 @@ function truncate(text: string, max = 28): string {
 </template>
 
 <style scoped>
-/* Transitions */
+/* Transition animations */
 .slide-down-enter-active,
 .slide-down-leave-active {
   transition: all 0.2s ease;

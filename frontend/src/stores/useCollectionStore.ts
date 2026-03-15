@@ -4,8 +4,8 @@ import ragApi from '@/api/ragApi'
 import type { CollectionInfo } from '@/types/rag'
 
 /**
- * Store global para la colección activa y listado de colecciones.
- * Todos los composables y componentes deben leer la colección activa desde aquí.
+ * Global store for the active collection and collection listing.
+ * All composables and components should read the active collection from here.
  */
 export const useCollectionStore = defineStore('collections', () => {
   const collections = ref<CollectionInfo[]>([])
@@ -27,12 +27,12 @@ export const useCollectionStore = defineStore('collections', () => {
     try {
       const res = await ragApi.listCollections()
       collections.value = res.collections
-      // Si no hay colección activa seleccionada, usar la activa del servidor
+      // If no active collection is selected, use the one active on the server
       if (!activeCollection.value) {
         activeCollection.value = res.active
       }
     } catch (e: any) {
-      error.value = e?.response?.data?.detail ?? 'Error al obtener colecciones'
+      error.value = e?.response?.data?.detail ?? 'Error fetching collections'
     } finally {
       loading.value = false
     }
@@ -50,7 +50,7 @@ export const useCollectionStore = defineStore('collections', () => {
       await fetchCollections()
       activeCollection.value = name
     } catch (e: any) {
-      error.value = e?.response?.data?.detail ?? 'Error al crear colección'
+      error.value = e?.response?.data?.detail ?? 'Error creating collection'
       throw e
     } finally {
       loading.value = false
@@ -62,13 +62,13 @@ export const useCollectionStore = defineStore('collections', () => {
     error.value = null
     try {
       await ragApi.deleteCollection(name)
-      // Si se eliminó la colección activa, volver a la por defecto
+      // If the active collection was deleted, fall back to the default
       if (activeCollection.value === name) {
         activeCollection.value = defaultCollection.value
       }
       await fetchCollections()
     } catch (e: any) {
-      error.value = e?.response?.data?.detail ?? 'Error al eliminar colección'
+      error.value = e?.response?.data?.detail ?? 'Error deleting collection'
       throw e
     } finally {
       loading.value = false

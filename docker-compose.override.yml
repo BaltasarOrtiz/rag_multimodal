@@ -1,16 +1,16 @@
-# docker-compose.override.yml — Configuración de DESARROLLO (no versionado)
-# Este archivo sobreescribe docker-compose.yml automáticamente con `docker compose up`.
-# Para producción, usar solo docker-compose.yml.
+# docker-compose.override.yml — DEVELOPMENT configuration (not versioned)
+# This file automatically overrides docker-compose.yml with `docker compose up`.
+# For production, use docker-compose.yml only.
 services:
   api:
     volumes:
-      - ./backend:/app        # Hot reload: cambios de código se reflejan en vivo
+      - ./backend:/app        # Hot reload: code changes are reflected live
       - fastembed_cache:/tmp/fastembed_cache
     command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
     environment:
       - QDRANT_HOST=qdrant
 
-  # El frontend se construye y sirve con nginx también en dev.
-  # Si prefieres usar Vite local (npm run dev), borra este arquivo .override.yml
-  # o comenta el bloque frontend:
+  # The frontend is also built and served with nginx in dev.
+  # If you prefer using local Vite (npm run dev), delete this .override.yml file
+  # or comment out the frontend block:
   # frontend: {}

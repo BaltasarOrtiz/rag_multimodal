@@ -4,12 +4,12 @@ __pycache__/
 .venv/
 *.egg-info/
 
-# Env — nunca versionar archivos con secretos reales
+# Env — never version files containing real secrets
 .env
 .env.*
 !.env.example
 
-# Data & Storage (no versionar documentos ni векторы)
+# Data & Storage (do not version documents or vectors)
 backend/data/*
 !backend/data/.gitkeep
 backend/storage/*
@@ -21,10 +21,25 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env.local
 
+# Logs y outputs en runtime
+*.log
+backend/feedback.jsonl
+backend/eval_results*.json
+backend/.collections_meta.json
+
+# Tests y cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
 # OS
 .DS_Store
 Thumbs.db
+Thumbs.db:encryptable
+desktop.ini
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo

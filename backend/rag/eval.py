@@ -1,14 +1,14 @@
 """
-Módulo de evaluación del pipeline RAG.
+RAG pipeline evaluation module.
 
-Usa el mismo LLM (Gemini) ya configurado en LlamaIndex para puntuar
-4 métricas estilo RAGAS por cada pregunta, sin dependencias adicionales.
+Uses the same LLM (Gemini) already configured in LlamaIndex to score
+4 RAGAS-style metrics per question, without additional dependencies.
 
-Métricas (0.0 – 1.0):
-  faithfulness      → ¿La respuesta está soportada por el contexto recuperado?
-  answer_relevancy  → ¿La respuesta responde la pregunta formulada?
-  context_recall    → ¿Los chunks recuperados contienen la información del ground truth?
-  context_precision → ¿Los chunks recuperados son relevantes para la pregunta?
+Metrics (0.0 - 1.0):
+  faithfulness      → Is the answer supported by the retrieved context?
+  answer_relevancy  → Does the answer address the question asked?
+  context_recall    → Do the retrieved chunks contain the ground truth information?
+  context_precision → Are the retrieved chunks relevant to the question?
 """
 
 import re
@@ -22,8 +22,8 @@ from rag.query import query_rag
 
 def _llm_score(prompt: str) -> float:
     """
-    Envía el prompt al LLM configurado y extrae un número 0-10 de la respuesta.
-    Normaliza a 0.0 – 1.0. Devuelve 0.5 si no se puede parsear.
+    Sends the prompt to the configured LLM and extracts a number 0-10 from the response.
+    Normalizes to 0.0 - 1.0. Returns 0.5 if it cannot be parsed.
     """
     try:
         response = Settings.llm.complete(prompt)
@@ -33,7 +33,7 @@ def _llm_score(prompt: str) -> float:
             val = float(numbers[0])
             return round(min(max(val / 10.0, 0.0), 1.0), 4)
     except Exception as exc:
-        print(f"⚠️  Error en scoring LLM: {exc}")
+        print(f"⚠️  Error in LLM scoring: {exc}")
     return 0.5
 
 
@@ -98,8 +98,8 @@ def evaluate_question(
     top_k: int = 5,
 ) -> dict:
     """
-    Evalúa una única pregunta contra el índice RAG.
-    Retorna dict con answer, scores individuales y nodes_retrieved.
+    Evaluates a single question against the RAG index.
+    Returns a dict with answer, individual scores and nodes_retrieved.
     """
     result = query_rag(index, question, top_k=top_k)
     answer = result["answer"]
@@ -118,7 +118,7 @@ def evaluate_question(
 
 
 def aggregate_metrics(results: list[dict]) -> dict:
-    """Calcula métricas agregadas (media) a partir de los resultados por pregunta."""
+    """Calculates aggregated metrics (mean) from the per-question results."""
     n = len(results)
     if n == 0:
         return {"faithfulness": 0.0, "answer_relevancy": 0.0, "context_recall": 0.0, "context_precision": 0.0}

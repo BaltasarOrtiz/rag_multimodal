@@ -11,7 +11,7 @@ const toast = useToast()
 const { documents, loading, error, fetchDocuments, upload, deleteDocument } = useDocuments()
 const collectionStore = useCollectionStore()
 
-// Recargar documentos cuando cambia la colección activa
+// Reload documents when the active collection changes
 watch(() => collectionStore.activeCollection, () => fetchDocuments())
 
 const uploading = ref(false)
@@ -90,8 +90,8 @@ function formatSize(bytes: number) {
           <div class="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mb-1">
             <i class="pi pi-cloud-upload text-lg opacity-75" />
           </div>
-          <p class="text-[0.92rem] font-medium text-zinc-300">Arrastrá PDFs, imágenes o texto</p>
-          <p class="text-[0.64rem] text-zinc-600 uppercase">Máx. 50 MB por archivo</p>
+          <p class="text-[0.92rem] font-medium text-zinc-300">Drag PDFs, images or text</p>
+          <p class="text-[0.64rem] text-zinc-600 uppercase">Max. 50 MB per file</p>
         </div>
       </template>
     </FileUpload>
@@ -116,7 +116,7 @@ function formatSize(bytes: number) {
           class=""
           :loading="deletingDoc === doc.name"
           :disabled="deletingDoc !== null"
-          title="Eliminar documento"
+          title="Delete document"
           @click="handleDelete(doc.name)"
         />
       </div>
@@ -124,7 +124,7 @@ function formatSize(bytes: number) {
 
     <div v-else-if="!loading" class="flex flex-col items-center gap-1.5 p-4 text-cape-cod-500 text-[0.8125rem]">
       <i class="pi pi-inbox" />
-      <span>No hay documentos cargados</span>
+      <span>No documents uploaded</span>
     </div>
 
     <button
@@ -133,7 +133,7 @@ function formatSize(bytes: number) {
       @click="fetchDocuments"
     >
       <i class="pi pi-refresh text-[0.7rem]" />
-      Actualizar lista
+      Refresh list
     </button>
   </div>
 </template>

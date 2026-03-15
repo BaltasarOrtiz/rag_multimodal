@@ -2,7 +2,7 @@ import { ref, computed, watchEffect } from 'vue'
 import { defineStore } from 'pinia'
 import type { ChatMessage, SourceInfo } from '@/types/rag'
 
-// ── Tipos internos ────────────────────────────────────────────
+// ── Internal types ────────────────────────────────────────────
 
 interface Conversation {
   id: string
@@ -22,14 +22,14 @@ interface Folder {
   collapsed: boolean
 }
 
-// ── Colores disponibles para carpetas ────────────────────────
+// ── Available folder colors ───────────────────────────────────
 
 export const FOLDER_COLORS = [
   '#22d3ee', '#8b5cf6', '#4ade80', '#fb923c',
   '#f472b6', '#facc15', '#60a5fa', '#f87171',
 ]
 
-// ── Claves localStorage ───────────────────────────────────────
+// ── localStorage keys ─────────────────────────────────────────
 
 const LS_CONVERSATIONS = 'rag_conversations'
 const LS_FOLDERS = 'rag_folders'
@@ -38,13 +38,13 @@ const LS_ACTIVE = 'rag_active_conversation_id'
 // ── Store ─────────────────────────────────────────────────────
 
 export const useConversationStore = defineStore('conversations', () => {
-  // ── Estado ────────────────────────────────────────────────
+  // ── State ─────────────────────────────────────────────────
 
   function _loadLS<T>(key: string, fallback: T): T {
     try {
       const raw = localStorage.getItem(key)
       if (raw) return JSON.parse(raw) as T
-    } catch { /* ignorar */ }
+    } catch { /* ignore */ }
     return fallback
   }
 
@@ -52,17 +52,17 @@ export const useConversationStore = defineStore('conversations', () => {
   const folders = ref<Folder[]>(_loadLS<Folder[]>(LS_FOLDERS, []))
   const activeId = ref<string | null>(_loadLS<string | null>(LS_ACTIVE, null))
 
-  // Si no hay conversaciones al montar, crear una vacía automáticamente
+  // If there are no conversations on mount, create an empty one automatically
   if (conversations.value.length === 0) {
     const first = _makeConversation(null)
     conversations.value.push(first)
     activeId.value = first.id
   } else if (!activeId.value || !conversations.value.find(c => c.id === activeId.value)) {
-    // Si el activeId no existe, apuntar a la primera
+    // If activeId does not exist, point to the first one
     activeId.value = conversations.value[0]!.id
   }
 
-  // ── Persistencia ──────────────────────────────────────────
+  // ── Persistence ───────────────────────────────────────────
 
   watchEffect(() => {
     const toSave = conversations.value.map(c => ({
@@ -99,7 +99,7 @@ export const useConversationStore = defineStore('conversations', () => {
       result[key].push(conv)
     }
 
-    // Ordenar cada grupo: pinned primero, luego updatedAt desc
+    // Sort each group: pinned first, then updatedAt desc
     for (const key of Object.keys(result)) {
       result[key]!.sort((a, b) => {
         if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
@@ -110,13 +110,13 @@ export const useConversationStore = defineStore('conversations', () => {
     return result
   })
 
-  // ── Helpers privados ──────────────────────────────────────
+  // ── Private helpers ───────────────────────────────────────
 
   function _makeConversation(folderId: string | null): Conversation {
     const now = Date.now()
     return {
       id: crypto.randomUUID(),
-      title: 'Nueva conversación',
+      title: 'New conversation',
       sessionId: crypto.randomUUID(),
       folderId,
       createdAt: now,
@@ -126,7 +126,7 @@ export const useConversationStore = defineStore('conversations', () => {
     }
   }
 
-  // ── Acciones ──────────────────────────────────────────────
+  // ── Actions ───────────────────────────────────────────────
 
   function createConversation(folderId: string | null = null): Conversation {
     const conv = _makeConversation(folderId)
@@ -142,7 +142,7 @@ export const useConversationStore = defineStore('conversations', () => {
   function updateTitle(id: string, title: string): void {
     const conv = conversations.value.find(c => c.id === id)
     if (conv) {
-      conv.title = title.trim() || 'Nueva conversación'
+      conv.title = title.trim() || 'New conversation'
       conv.updatedAt = Date.now()
     }
   }
@@ -220,7 +220,7 @@ export const useConversationStore = defineStore('conversations', () => {
   function createFolder(name: string, color: string): Folder {
     const folder: Folder = {
       id: crypto.randomUUID(),
-      name: name.trim() || 'Carpeta',
+      name: name.trim() || 'Folder',
       color,
       collapsed: false,
     }
@@ -230,12 +230,12 @@ export const useConversationStore = defineStore('conversations', () => {
 
   function renameFolder(id: string, name: string): void {
     const folder = folders.value.find(f => f.id === id)
-    if (folder) folder.name = name.trim() || 'Carpeta'
+    if (folder) folder.name = name.trim() || 'Folder'
   }
 
   function deleteFolder(id: string): void {
     folders.value = folders.value.filter(f => f.id !== id)
-    // Desvincular conversaciones
+    // Unlink conversations
     for (const conv of conversations.value) {
       if (conv.folderId === id) conv.folderId = null
     }
@@ -252,14 +252,14 @@ export const useConversationStore = defineStore('conversations', () => {
   }
 
   return {
-    // estado
+    // state
     conversations,
     folders,
     activeId,
     // getters
     activeConversation,
     conversationsByFolder,
-    // acciones
+    // actions
     createConversation,
     setActive,
     updateTitle,

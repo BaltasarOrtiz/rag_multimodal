@@ -6,28 +6,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Docker (primary workflow)
 ```bash
-# Desarrollo con hot-reload (usa docker-compose.override.yml automáticamente)
+# Development with hot-reload (uses docker-compose.override.yml automatically)
 docker compose up -d
 docker compose logs -f api
 
-# Producción (sin override)
+# Production (without override)
 docker compose -f docker-compose.yml up -d
 
-# Rebuild tras cambios en Dockerfile o requirements.txt
+# Rebuild after changes to Dockerfile or requirements.txt
 docker compose build api
 docker compose build frontend
 ```
 
-### Frontend (desarrollo local sin Docker)
+### Frontend (local development without Docker)
 ```bash
 cd frontend
 npm install
-npm run dev        # Vite en http://localhost:5173
-npm run build      # vue-tsc + vite build (lo que corre en Docker)
-npm run type-check # vue-tsc sin emitir
+npm run dev        # Vite at http://localhost:5173
+npm run build      # vue-tsc + vite build (what runs in Docker)
+npm run type-check # vue-tsc without emitting
 ```
 
-### Backend (fuera de Docker, con Qdrant ya corriendo)
+### Backend (outside Docker, with Qdrant already running)
 ```bash
 cd backend
 pip install -r requirements.txt
@@ -38,55 +38,55 @@ uvicorn main:app --reload --port 8000
 ```bash
 # Backend
 cd backend && pytest tests/ -v
-pytest tests/test_api.py::test_health -v  # test individual
+pytest tests/test_api.py::test_health -v  # individual test
 
 # Frontend
 cd frontend && npx vitest run
-npx vitest run src/tests/useRag.test.ts   # test individual
+npx vitest run src/tests/useRag.test.ts   # individual test
 ```
 
 ## Architecture
 
 ### Services (Docker Compose)
-- **qdrant** — Vector database. Datos persistidos en `./qdrant_storage/` (volumen local).
-- **api** — FastAPI en puerto 8000. Documentos en `./backend/data/`, índice LlamaIndex en `./backend/storage/`.
-- **frontend** — Nginx en puerto 80. Sirve el build de Vue y hace proxy `/api/` → `api:8000`.
+- **qdrant** — Vector database. Data persisted in `./qdrant_storage/` (local volume).
+- **api** — FastAPI on port 8000. Documents in `./backend/data/`, LlamaIndex index in `./backend/storage/`.
+- **frontend** — Nginx on port 80. Serves the Vue build and proxies `/api/` → `api:8000`.
 
-En desarrollo, `docker-compose.override.yml` monta `./backend:/app` para hot-reload con `uvicorn --reload`.
+In development, `docker-compose.override.yml` mounts `./backend:/app` for hot-reload with `uvicorn --reload`.
 
 ### Backend (`backend/`)
 
-**Flujo de datos:**
-1. `config.py` — `Settings` (pydantic-settings) lee `.env`. Es la única fuente de verdad para configuración. Todas las features flags están aquí (`enable_hybrid`, `enable_reranker`, `enable_hyde`, `enable_semantic_chunking`).
-2. `main.py` — App FastAPI con todos los endpoints. Mantiene estado en memoria: `INDEX_CACHE` (TTLCache), `_CHAT_ENGINES` (TTLCache), `INGEST_STATUS`, `EVAL_JOBS`, `FEEDBACK_FILE`.
-3. `rag/ingest.py` — Pipeline de ingestión. Datos por colección en `./data/{collection}/`. LlamaIndex settings son globales (singleton con lock) — se inicializan una sola vez en `_init_llama_settings()`.
-4. `rag/query.py` — Query single-turn y chat multi-turn. El `_HyDERetriever` es un wrapper `BaseRetriever` que aplica `HyDEQueryTransform` antes de recuperar, necesario porque `CondensePlusContextChatEngine` no expone un hook de query transform directamente. Los chat engines se cachean en `_CHAT_ENGINES` keyed por `f"{session_id}:{top_k}:{apply_hyde}"`.
-5. `rag/eval.py` — Evaluación RAGAS-style usando `Settings.llm.complete()` como juez (sin dependencia de la librería RAGAS).
-6. `rag/models.py` — Schemas Pydantic para todos los requests/responses.
+**Data flow:**
+1. `config.py` — `Settings` (pydantic-settings) reads `.env`. It is the single source of truth for configuration. All feature flags are here (`enable_hybrid`, `enable_reranker`, `enable_hyde`, `enable_semantic_chunking`).
+2. `main.py` — FastAPI app with all endpoints. Maintains in-memory state: `INDEX_CACHE` (TTLCache), `_CHAT_ENGINES` (TTLCache), `INGEST_STATUS`, `EVAL_JOBS`, `FEEDBACK_FILE`.
+3. `rag/ingest.py` — Ingestion pipeline. Data per collection in `./data/{collection}/`. LlamaIndex settings are global (singleton with lock) — initialized once in `_init_llama_settings()`.
+4. `rag/query.py` — Single-turn query and multi-turn chat. The `_HyDERetriever` is a `BaseRetriever` wrapper that applies `HyDEQueryTransform` before retrieving, necessary because `CondensePlusContextChatEngine` does not expose a query transform hook directly. Chat engines are cached in `_CHAT_ENGINES` keyed by `f"{session_id}:{top_k}:{apply_hyde}"`.
+5. `rag/eval.py` — RAGAS-style evaluation using `Settings.llm.complete()` as judge (no dependency on the RAGAS library).
+6. `rag/models.py` — Pydantic schemas for all requests/responses.
 
-**Multi-colección:** Cada colección tiene su propio directorio `./data/{name}/`, `./storage/{name}/` y colección en Qdrant. La colección activa se pasa en los requests; si no se especifica, usa `COLLECTION_NAME` del `.env`.
+**Multi-collection:** Each collection has its own `./data/{name}/`, `./storage/{name}/` directory and Qdrant collection. The active collection is passed in requests; if not specified, uses `COLLECTION_NAME` from `.env`.
 
-**Búsqueda híbrida:** Dense (Gemini embeddings 3072d) + sparse (BM25 vía fastembed). Si la colección existe sin sparse vectors y `ENABLE_HYBRID=true`, `get_vector_store()` con `allow_recreate=True` la elimina y recrea al ingestar. Con `allow_recreate=False` (startup) degrada silenciosamente a dense-only.
+**Hybrid search:** Dense (Gemini embeddings 3072d) + sparse (BM25 via fastembed). If the collection exists without sparse vectors and `ENABLE_HYBRID=true`, `get_vector_store()` with `allow_recreate=True` deletes and recreates it on ingestion. With `allow_recreate=False` (startup) it silently degrades to dense-only.
 
-**Imágenes:** `_embed_images_natively()` en `ingest.py` genera `ImageNode` con embeddings nativos multimodal (base64 → Gemini) en lugar de OCR. `SimpleDirectoryReader` procesa solo `.pdf`, `.txt`, `.md`; las imágenes se procesan por separado.
+**Images:** `_embed_images_natively()` in `ingest.py` generates `ImageNode` with native multimodal embeddings (base64 → Gemini) instead of OCR. `SimpleDirectoryReader` processes only `.pdf`, `.txt`, `.md`; images are processed separately.
 
 ### Frontend (`frontend/src/`)
 
-**Capas:**
-- `api/ragApi.ts` — Única interfaz con el backend (axios). Todo el manejo de SSE streaming está en `useChat()` usando `fetch` + `ReadableStream` (no axios, porque axios no soporta streaming).
-- `composables/useRag.ts` — Composables Vue que encapsulan la lógica de negocio: `useHealth`, `useDocuments`, `useIngest`, `useIngestStatus`, `useChat`, `useQuery`.
-- `stores/useConversationStore.ts` — Pinia store persistido en `localStorage` (`rag_conversations`, `rag_folders`, `rag_active_conversation_id`). Maneja conversaciones, carpetas, mensajes y el `sessionId` del backend.
-- `stores/useCollectionStore.ts` — Pinia store para colección activa, persistida en `localStorage`.
-- `types/rag.ts` — Interfaces TypeScript que espejo los schemas Pydantic del backend.
+**Layers:**
+- `api/ragApi.ts` — Single interface with the backend (axios). All SSE streaming handling is in `useChat()` using `fetch` + `ReadableStream` (not axios, because axios does not support streaming).
+- `composables/useRag.ts` — Vue composables that encapsulate business logic: `useHealth`, `useDocuments`, `useIngest`, `useIngestStatus`, `useChat`, `useQuery`.
+- `stores/useConversationStore.ts` — Pinia store persisted in `localStorage` (`rag_conversations`, `rag_folders`, `rag_active_conversation_id`). Manages conversations, folders, messages and the backend `sessionId`.
+- `stores/useCollectionStore.ts` — Pinia store for the active collection, persisted in `localStorage`.
+- `types/rag.ts` — TypeScript interfaces that mirror the backend Pydantic schemas.
 
-**Vistas:** `HomeView` (chat + sidebars), `SettingsView`, `EvalView`. El sidebar derecho (documentos/ingestión) es colapsable.
+**Views:** `HomeView` (chat + sidebars), `SettingsView`, `EvalView`. The right sidebar (documents/ingestion) is collapsible.
 
-**Paleta de colores:** Cape Cod (grises oscuros). Variables en `style.css` — `--text-primary`, `--text-secondary`, `--text-muted`, `--success`, `--warning`, `--error`. No usar variables `var(--cyan-*)` ni `var(--violet-*)` — no están definidas.
+**Color palette:** Cape Cod (dark grays). Variables in `style.css` — `--text-primary`, `--text-secondary`, `--text-muted`, `--success`, `--warning`, `--error`. Do not use `var(--cyan-*)` or `var(--violet-*)` variables — they are not defined.
 
 ### Key `.env` variables
 ```
-GOOGLE_API_KEY=          # Requerida
-EMBEDDING_DIM=3072       # Debe coincidir con el modelo (gemini-embedding-2-preview = 3072)
+GOOGLE_API_KEY=          # Required
+EMBEDDING_DIM=3072       # Must match the model (gemini-embedding-2-preview = 3072)
 COLLECTION_NAME=facultad_rag
 ENABLE_HYBRID=true
 ENABLE_RERANKER=true
@@ -94,8 +94,8 @@ ENABLE_HYDE=false
 ENABLE_SEMANTIC_CHUNKING=false
 ```
 
-> Cambiar `ENABLE_HYDE` via `PUT /config` invalida `_CHAT_ENGINES` automáticamente.
-> Cambiar `ENABLE_SEMANTIC_CHUNKING` requiere re-ingestión completa de documentos.
+> Changing `ENABLE_HYDE` via `PUT /config` invalidates `_CHAT_ENGINES` automatically.
+> Changing `ENABLE_SEMANTIC_CHUNKING` requires a full re-ingestion of documents.
 
 ## Memory
 

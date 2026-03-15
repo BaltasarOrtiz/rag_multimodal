@@ -20,16 +20,16 @@ import type {
   EvalStatus,
 } from '@/types/rag'
 
-/** Construye un RagStreamError genérico cuando no hay payload estructurado */
+/** Builds a generic RagStreamError when there is no structured payload */
 function _networkError(detail: string): RagStreamError {
-  return { detail, error_code: 'connection_error', suggestion: 'Verifica tu conexión y que el servidor esté corriendo.' }
+  return { detail, error_code: 'connection_error', suggestion: 'Check your connection and make sure the server is running.' }
 }
 
 function _serverError(status: number): RagStreamError {
-  if (status === 503) return { detail: 'Servicio no disponible.', error_code: 'qdrant_unavailable', suggestion: 'Ingesta documentos primero con el botón \'Ingestar\'.' }
-  if (status === 429) return { detail: 'Demasiadas peticiones.', error_code: 'llm_quota', suggestion: 'Espera unos segundos antes de reintentar.' }
-  if (status === 401) return { detail: 'No autorizado.', error_code: 'llm_auth', suggestion: 'Verifica tu API Key.' }
-  return { detail: `Error del servidor (HTTP ${status}).`, error_code: 'unknown', suggestion: 'Revisa los logs del servidor para más detalles.' }
+  if (status === 503) return { detail: 'Service unavailable.', error_code: 'qdrant_unavailable', suggestion: 'Ingest documents first using the \'Ingest\' button.' }
+  if (status === 429) return { detail: 'Too many requests.', error_code: 'llm_quota', suggestion: 'Wait a few seconds before retrying.' }
+  if (status === 401) return { detail: 'Unauthorized.', error_code: 'llm_auth', suggestion: 'Check your API Key.' }
+  return { detail: `Server error (HTTP ${status}).`, error_code: 'unknown', suggestion: 'Check the server logs for more details.' }
 }
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
@@ -90,12 +90,12 @@ export const ragApi = {
     return api.get<IngestStatus>('/ingest/status', { params: collection ? { collection } : {} }).then(r => r.data)
   },
 
-  /** DELETE /collection (reset default — compatibilidad) */
+  /** DELETE /collection (reset default — compatibility) */
   resetCollection(): Promise<MessageResponse> {
     return api.delete<MessageResponse>('/collection').then(r => r.data)
   },
 
-  // ── Gestión de colecciones ──────────────────────────────────
+  // ── Collection management ──────────────────────────────────
 
   /** GET /collections */
   listCollections(): Promise<CollectionsResponse> {
@@ -114,7 +114,7 @@ export const ragApi = {
 
   // ── Chat ───────────────────────────────────────────────────
 
-  /** POST /chat — chat multi-turn sin streaming */
+  /** POST /chat — multi-turn chat without streaming */
   chat(payload: ChatRequest, collection?: string): Promise<ChatResponse> {
     return api.post<ChatResponse>('/chat', payload, { params: collection ? { collection } : {} }).then(r => r.data)
   },
@@ -129,14 +129,14 @@ export const ragApi = {
     return api.post<MessageResponse>('/feedback', payload).then(r => r.data)
   },
 
-  // ── Evaluación ─────────────────────────────────────────────
+  // ── Evaluation ─────────────────────────────────────────────
 
-  /** POST /eval — inicia evaluación en background */
+  /** POST /eval — starts evaluation in the background */
   startEval(payload: EvalRequest): Promise<{ eval_id: string; message: string }> {
     return api.post('/eval', payload).then(r => r.data)
   },
 
-  /** GET /eval/:evalId — estado y resultados */
+  /** GET /eval/:evalId — status and results */
   getEvalStatus(evalId: string): Promise<EvalStatus> {
     return api.get<EvalStatus>(`/eval/${encodeURIComponent(evalId)}`).then(r => r.data)
   },
@@ -152,9 +152,9 @@ export const ragApi = {
   },
 
   /**
-   * POST /chat/stream?collection=... — chat multi-turn con SSE streaming.
-   * Llama onToken por cada token recibido, onSources al final con los datos
-   * de fuentes, y onDone al completar. onError con RagStreamError ante fallos.
+   * POST /chat/stream?collection=... — multi-turn chat with SSE streaming.
+   * Calls onToken for each token received, onSources at the end with source
+   * data, and onDone on completion. onError with RagStreamError on failure.
    */
   async chatStream(
     payload: ChatRequest,
@@ -175,12 +175,12 @@ export const ragApi = {
         body: JSON.stringify(payload),
       })
     } catch {
-      onError(_networkError('Error de red al conectar con el servidor.'))
+      onError(_networkError('Network error while connecting to the server.'))
       return
     }
 
     if (!response.ok || !response.body) {
-      // Intentar leer JSON con error_code del cuerpo (p.ej. 503 con detail estructurado)
+      // Try to read JSON with error_code from the body (e.g. 503 with structured detail)
       try {
         const errBody = await response.json()
         if (errBody.error_code) {
@@ -202,10 +202,10 @@ export const ragApi = {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        // Normalizar \r\n → \n para compatibilidad con sse-starlette 3.x
+        // Normalize \r\n → \n for compatibility with sse-starlette 3.x
         buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n')
 
-        // Procesar bloques SSE separados por \n\n
+        // Process SSE blocks separated by \n\n
         let boundary: number
         while ((boundary = buffer.indexOf('\n\n')) !== -1) {
           const block = buffer.slice(0, boundary)
@@ -233,7 +233,7 @@ export const ragApi = {
                 ? (parsed as RagStreamError)
                 : { detail: parsed.detail ?? data, error_code: 'unknown', suggestion: '' })
             } catch {
-              onError({ detail: data, error_code: 'unknown', suggestion: 'Revisa los logs del servidor.' })
+              onError({ detail: data, error_code: 'unknown', suggestion: 'Check the server logs.' })
             }
             return
           }

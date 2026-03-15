@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 
-# La app se importa DESPUÉS de que conftest.py configura las env vars
+# The app is imported AFTER conftest.py configures the env vars
 @pytest.fixture
 def app():
     from main import app as fastapi_app
@@ -11,7 +11,7 @@ def app():
 
 @pytest.mark.asyncio
 async def test_health(app):
-    """El endpoint /health debe responder 200 con status ok."""
+    """The /health endpoint must respond 200 with status ok."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.get("/health")
     assert res.status_code == 200
@@ -22,7 +22,7 @@ async def test_health(app):
 
 @pytest.mark.asyncio
 async def test_upload_invalid_extension(app):
-    """Archivos con extensión no permitida deben retornar 400."""
+    """Files with a disallowed extension must return 400."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
             "/upload",
@@ -34,7 +34,7 @@ async def test_upload_invalid_extension(app):
 
 @pytest.mark.asyncio
 async def test_upload_oversized_file(app):
-    """Archivos que superan MAX_UPLOAD_MB deben retornar 400."""
+    """Files that exceed MAX_UPLOAD_MB must return 400."""
     big_content = b"%PDF-" + b"A" * (51 * 1024 * 1024)  # 51 MB
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
@@ -47,7 +47,7 @@ async def test_upload_oversized_file(app):
 
 @pytest.mark.asyncio
 async def test_query_without_index(app):
-    """Query sin index cargado debe retornar 503."""
+    """Query without a loaded index must return 503."""
     import main
     original = main.INDEX
     main.INDEX = None
@@ -62,7 +62,7 @@ async def test_query_without_index(app):
 
 @pytest.mark.asyncio
 async def test_ingest_status_idle(app):
-    """El estado de ingestión inicial debe ser idle."""
+    """The initial ingestion status must be idle."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.get("/ingest/status")
     assert res.status_code == 200
@@ -71,7 +71,7 @@ async def test_ingest_status_idle(app):
 
 @pytest.mark.asyncio
 async def test_delete_document_invalid_name(app):
-    """Nombres de archivo con path traversal deben retornar 400."""
+    """Filenames with path traversal must return 400."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.delete("/documents/../../etc/passwd")
     assert res.status_code == 400

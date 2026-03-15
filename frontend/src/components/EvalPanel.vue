@@ -13,7 +13,7 @@ import type { EvalQuestion, EvalStatus, EvalQuestionResult } from '@/types/rag'
 
 const toast = useToast()
 
-// ── Estado ────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────
 interface Row {
   id: number
   question: string
@@ -29,7 +29,7 @@ const topK = ref(5)
 const running = ref(false)
 const currentJob = ref<EvalStatus | null>(null)
 
-// ── Filas ─────────────────────────────────────────────────────
+// ── Rows ──────────────────────────────────────────────────────
 function addRow() {
   rows.value.push({ id: _nextId++, question: '', ground_truth: '' })
 }
@@ -49,13 +49,13 @@ function importJson() {
     try {
       const text = await file.text()
       const data: Array<{ question: string; ground_truth: string }> = JSON.parse(text)
-      if (!Array.isArray(data)) throw new Error('El JSON debe ser un array.')
+      if (!Array.isArray(data)) throw new Error('JSON must be an array.')
       rows.value = data.map(d => ({
         id: _nextId++,
         question: d.question ?? '',
         ground_truth: d.ground_truth ?? '',
       }))
-      toast.add({ severity: 'success', summary: 'Importado', detail: `${data.length} preguntas cargadas`, life: 3000 })
+      toast.add({ severity: 'success', summary: 'Imported', detail: `${data.length} questions loaded`, life: 3000 })
     } catch (e: any) {
       toast.add({ severity: 'error', summary: 'Error', detail: e.message, life: 4000 })
     }
@@ -63,13 +63,13 @@ function importJson() {
   input.click()
 }
 
-// ── Validación ────────────────────────────────────────────────
+// ── Validation ────────────────────────────────────────────────
 const validRows = computed(() =>
   rows.value.filter(r => r.question.trim() && r.ground_truth.trim())
 )
 const canRun = computed(() => validRows.value.length > 0 && !running.value)
 
-// ── Evaluación ────────────────────────────────────────────────
+// ── Evaluation ────────────────────────────────────────────────
 async function runEval() {
   if (!canRun.value) return
   running.value = true
@@ -84,7 +84,7 @@ async function runEval() {
     const { eval_id } = await ragApi.startEval({ questions, top_k: topK.value })
     pollStatus(eval_id)
   } catch (e: any) {
-    const detail = e?.response?.data?.detail ?? 'Error al iniciar evaluación'
+    const detail = e?.response?.data?.detail ?? 'Error starting evaluation'
     toast.add({ severity: 'error', summary: 'Error', detail, life: 5000 })
     running.value = false
   }
@@ -100,9 +100,9 @@ function pollStatus(evalId: string) {
       } else {
         running.value = false
         if (status.status === 'done') {
-          toast.add({ severity: 'success', summary: 'Evaluación completada', detail: `${status.n_questions} preguntas evaluadas`, life: 4000 })
+          toast.add({ severity: 'success', summary: 'Evaluation completed', detail: `${status.n_questions} questions evaluated`, life: 4000 })
         } else {
-          toast.add({ severity: 'error', summary: 'Evaluación fallida', detail: status.error ?? 'Error desconocido', life: 5000 })
+          toast.add({ severity: 'error', summary: 'Evaluation failed', detail: status.error ?? 'Unknown error', life: 5000 })
         }
       }
     } catch {
@@ -111,7 +111,7 @@ function pollStatus(evalId: string) {
   }, 2000)
 }
 
-// ── Helpers visuales ─────────────────────────────────────────
+// ── Visual helpers ────────────────────────────────────────────
 function scoreColor(v: number): string {
   if (v >= 0.8) return 'score-high'
   if (v >= 0.5) return 'score-mid'
@@ -137,10 +137,10 @@ const metricIcons: Record<string, string> = {
 }
 
 const metricDesc: Record<string, string> = {
-  faithfulness: 'La respuesta está soportada por el contexto',
-  answer_relevancy: 'La respuesta responde la pregunta',
-  context_recall: 'Los chunks contienen el ground truth',
-  context_precision: 'Los chunks recuperados son relevantes',
+  faithfulness: 'The answer is supported by the context',
+  answer_relevancy: 'The answer addresses the question',
+  context_recall: 'The chunks contain the ground truth',
+  context_precision: 'The retrieved chunks are relevant',
 }
 
 function exportResults() {
@@ -165,18 +165,18 @@ function exportResults() {
 <template>
   <div class="eval-panel">
 
-    <!-- ── Encabezado ──────────────────────────────────────── -->
+    <!-- ── Header ─────────────────────────────────────────── -->
     <div class="eval-header">
       <div class="eval-title-row">
         <i class="pi pi-chart-bar eval-icon" />
         <div>
-          <h2 class="eval-title">Evaluación RAG</h2>
-          <p class="eval-subtitle">Mide faithfulness, relevancy, context recall y precision usando Gemini como juez</p>
+          <h2 class="eval-title">RAG Evaluation</h2>
+          <p class="eval-subtitle">Measures faithfulness, relevancy, context recall and precision using Gemini as judge</p>
         </div>
       </div>
     </div>
 
-    <!-- ── Configuración + preguntas ─────────────────────────── -->
+    <!-- ── Configuration + questions ────────────────────────── -->
     <div class="eval-body">
 
       <!-- Top-K + acciones -->
@@ -197,7 +197,7 @@ function exportResults() {
           />
           <Button
             icon="pi pi-plus"
-            label="Añadir pregunta"
+            label="Add question"
             text
             size="small"
             class="!text-cape-cod-300"
@@ -207,7 +207,7 @@ function exportResults() {
         </div>
       </div>
 
-      <!-- Tabla de preguntas -->
+      <!-- Questions table -->
       <div class="questions-list">
         <TransitionGroup name="row">
           <div v-for="row in rows" :key="row.id" class="question-row">
@@ -215,10 +215,10 @@ function exportResults() {
 
             <div class="row-fields">
               <div class="field-group">
-                <label class="field-sublabel"><i class="pi pi-question-circle" /> Pregunta</label>
+                <label class="field-sublabel"><i class="pi pi-question-circle" /> Question</label>
                 <InputText
                   v-model="row.question"
-                  placeholder="¿Qué quieres preguntar al RAG?"
+                  placeholder="What do you want to ask the RAG?"
                   class="row-input"
                   :disabled="running"
                 />
@@ -227,7 +227,7 @@ function exportResults() {
                 <label class="field-sublabel"><i class="pi pi-check-square" /> Ground truth</label>
                 <Textarea
                   v-model="row.ground_truth"
-                  placeholder="Respuesta esperada o de referencia..."
+                  placeholder="Expected or reference answer..."
                   class="row-textarea"
                   rows="2"
                   auto-resize
@@ -249,9 +249,9 @@ function exportResults() {
         </TransitionGroup>
       </div>
 
-      <!-- Botón principal -->
+      <!-- Main button -->
       <Button
-        :label="running ? `Evaluando ${currentJob?.questions_done ?? 0}/${currentJob?.n_questions ?? validRows.length}…` : `Evaluar ${validRows.length} pregunta${validRows.length !== 1 ? 's' : ''}`"
+        :label="running ? `Evaluating ${currentJob?.questions_done ?? 0}/${currentJob?.n_questions ?? validRows.length}…` : `Evaluate ${validRows.length} question${validRows.length !== 1 ? 's' : ''}`"
         icon="pi pi-play"
         :loading="running"
         :disabled="!canRun"
@@ -259,21 +259,21 @@ function exportResults() {
         @click="runEval"
       />
 
-      <!-- Progreso -->
+      <!-- Progress -->
       <Transition name="fade">
         <div v-if="running && currentJob" class="progress-section">
           <ProgressBar :value="currentJob.progress" class="eval-progress" />
-          <span class="progress-label">{{ currentJob.questions_done }} / {{ currentJob.n_questions }} preguntas</span>
+          <span class="progress-label">{{ currentJob.questions_done }} / {{ currentJob.n_questions }} questions</span>
         </div>
       </Transition>
     </div>
 
-    <!-- ── Resultados ─────────────────────────────────────────── -->
+    <!-- ── Results ───────────────────────────────────────────── -->
     <Transition name="fade">
       <div v-if="currentJob?.status === 'done' && currentJob.metrics" class="results-section">
 
         <div class="results-header">
-          <span class="results-title">Resultados</span>
+          <span class="results-title">Results</span>
           <Button
             icon="pi pi-download"
             label="Exportar"
@@ -284,7 +284,7 @@ function exportResults() {
           />
         </div>
 
-        <!-- Métricas agregadas -->
+        <!-- Aggregate metrics -->
         <div class="metrics-grid">
           <div
             v-for="(_, key) in metricLabels"
@@ -312,9 +312,9 @@ function exportResults() {
           </div>
         </div>
 
-        <!-- Detalle por pregunta -->
+        <!-- Per-question detail -->
         <div class="detail-section">
-          <span class="detail-title">Detalle por pregunta</span>
+          <span class="detail-title">Per-question detail</span>
           <DataTable
             :value="currentJob.results ?? []"
             class="eval-table"
@@ -322,17 +322,17 @@ function exportResults() {
             scroll-height="400px"
             scrollable
           >
-            <Column field="question" header="Pregunta" style="min-width: 200px">
+            <Column field="question" header="Question" style="min-width: 200px">
               <template #body="{ data }: { data: EvalQuestionResult }">
                 <span class="cell-question">{{ data.question }}</span>
               </template>
             </Column>
-            <Column header="Fidelidad" style="width: 100px">
+            <Column header="Faithfulness" style="width: 100px">
               <template #body="{ data }: { data: EvalQuestionResult }">
                 <span class="cell-score" :class="scoreColor(data.faithfulness)">{{ pct(data.faithfulness) }}</span>
               </template>
             </Column>
-            <Column header="Relevancia" style="width: 100px">
+            <Column header="Relevancy" style="width: 100px">
               <template #body="{ data }: { data: EvalQuestionResult }">
                 <span class="cell-score" :class="scoreColor(data.answer_relevancy)">{{ pct(data.answer_relevancy) }}</span>
               </template>
@@ -342,12 +342,12 @@ function exportResults() {
                 <span class="cell-score" :class="scoreColor(data.context_recall)">{{ pct(data.context_recall) }}</span>
               </template>
             </Column>
-            <Column header="Precisión ctx" style="width: 110px">
+            <Column header="Ctx Precision" style="width: 110px">
               <template #body="{ data }: { data: EvalQuestionResult }">
                 <span class="cell-score" :class="scoreColor(data.context_precision)">{{ pct(data.context_precision) }}</span>
               </template>
             </Column>
-            <Column field="nodes_retrieved" header="Nodos" style="width: 80px" />
+            <Column field="nodes_retrieved" header="Nodes" style="width: 80px" />
           </DataTable>
         </div>
       </div>
@@ -501,7 +501,7 @@ function exportResults() {
 }
 .remove-btn:hover { color: #f87171 !important; }
 
-/* Botón run */
+/* Run button */
 .run-btn {
   width: 100%;
   justify-content: center;
@@ -541,7 +541,7 @@ function exportResults() {
   color: var(--text-primary);
 }
 
-/* Métricas grid */
+/* Metrics grid */
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -592,7 +592,7 @@ function exportResults() {
   line-height: 1.3;
 }
 
-/* Score colors — usa las variables de estado del sistema */
+/* Score colors — uses the system status variables */
 .score-high { color: var(--success); }
 .metric-bar-fill.score-high { background: var(--success); }
 .score-mid { color: var(--warning); }

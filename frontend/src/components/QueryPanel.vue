@@ -4,7 +4,7 @@ import hljs from 'highlight.js'
 import { marked, type Tokens } from 'marked'
 import DOMPurify from 'dompurify'
 
-// Configurar highlight.js via marked.use() — compatible con marked 5+
+// Configure highlight.js via marked.use() — compatible with marked 5+
 marked.use({
   renderer: {
     code(token: Tokens.Code): string {
@@ -33,10 +33,10 @@ const {
 } = useChat()
 
 const filterOptions = [
-  { label: 'Todos',    value: null,   icon: 'pi pi-th-large' },
+  { label: 'All',    value: null,   icon: 'pi pi-th-large' },
   { label: 'PDF',      value: '.pdf', icon: 'pi pi-file-pdf' },
-  { label: 'Imágenes', value: '.png', icon: 'pi pi-image' },
-  { label: 'Texto',    value: '.txt', icon: 'pi pi-file' },
+  { label: 'Images', value: '.png', icon: 'pi pi-image' },
+  { label: 'Text',    value: '.txt', icon: 'pi pi-file' },
 ]
 
 const inputText = ref('')
@@ -54,7 +54,7 @@ const filteredMessages = computed(() => {
   return messages.value.filter(m => m.content.toLowerCase().includes(q))
 })
 
-// ── Título editable ───────────────────────────────────────────
+// ── Editable title ────────────────────────────────────────────
 const editingTitle = ref(false)
 const titleInputValue = ref('')
 
@@ -75,7 +75,7 @@ function confirmEditTitle() {
   editingTitle.value = false
 }
 
-/** Icono PrimeVue según el código de error */
+/** PrimeVue icon based on the error code */
 function errorIcon(code: RagErrorCode | undefined): string {
   switch (code) {
     case 'qdrant_not_found':    return 'pi pi-database'
@@ -93,31 +93,31 @@ function errorIcon(code: RagErrorCode | undefined): string {
   }
 }
 
-/** Etiqueta breve del código de error para el badge */
+/** Short label for the error code badge */
 function errorLabel(code: RagErrorCode | undefined): string {
   const map: Record<RagErrorCode, string> = {
-    qdrant_not_found:   'COLECCIÓN NO ENCONTRADA',
-    qdrant_unavailable: 'QDRANT NO DISPONIBLE',
-    qdrant_error:       'ERROR DE QDRANT',
-    llm_quota:          'CUOTA AGOTADA',
-    llm_auth:           'CREDENCIAL INVÁLIDA',
-    llm_unavailable:    'API NO DISPONIBLE',
-    llm_timeout:        'TIEMPO AGOTADO',
-    llm_error:          'ERROR DEL LLM',
-    hybrid_config:      'CONFIG. HÍBRIDA',
-    connection_error:   'ERROR DE RED',
-    timeout:            'TIEMPO AGOTADO',
-    unknown:            'ERROR DESCONOCIDO',
+    qdrant_not_found:   'COLLECTION NOT FOUND',
+    qdrant_unavailable: 'QDRANT UNAVAILABLE',
+    qdrant_error:       'QDRANT ERROR',
+    llm_quota:          'QUOTA EXHAUSTED',
+    llm_auth:           'INVALID CREDENTIAL',
+    llm_unavailable:    'API UNAVAILABLE',
+    llm_timeout:        'TIMED OUT',
+    llm_error:          'LLM ERROR',
+    hybrid_config:      'HYBRID CONFIG',
+    connection_error:   'NETWORK ERROR',
+    timeout:            'TIMED OUT',
+    unknown:            'UNKNOWN ERROR',
   }
   return code ? (map[code] ?? 'ERROR') : 'ERROR'
 }
 
-// Renderizar Markdown de forma segura
+// Safely render Markdown
 function renderMarkdown(text: string): string {
   return DOMPurify.sanitize(marked.parse(text) as string)
 }
 
-// Auto-scroll al último mensaje
+// Auto-scroll to the last message
 async function scrollToBottom() {
   await nextTick()
   if (scrollEl.value) {
@@ -143,10 +143,10 @@ function handleKeydown(e: KeyboardEvent) {
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text)
-    copyToast.value = '¡Copiado!'
+    copyToast.value = 'Copied!'
     setTimeout(() => { copyToast.value = null }, 2000)
   } catch {
-    copyToast.value = 'Error al copiar'
+    copyToast.value = 'Copy error'
     setTimeout(() => { copyToast.value = null }, 2000)
   }
 }
@@ -155,12 +155,12 @@ async function handleFeedback(msg: ChatMessage, rating: 1 | -1) {
   await submitFeedback(msg, rating)
 }
 
-// ── Pin de mensajes (B1) ──────────────────────────────────────
+// ── Message pinning (B1) ──────────────────────────────────────
 function toggleMessagePin(msg: ChatMessage) {
   msg.pinned = !msg.pinned
 }
 
-// ── Regenerar respuesta (A5) ──────────────────────────────────
+// ── Regenerate response (A5) ──────────────────────────────────
 async function regenerate(assistantMsg: ChatMessage) {
   if (!store.activeId) return
   const msgs = messages.value
@@ -168,13 +168,13 @@ async function regenerate(assistantMsg: ChatMessage) {
   if (idx <= 0) return
   const userMsg = msgs[idx - 1]
   if (!userMsg || userMsg.role !== 'user') return
-  // Eliminar el mensaje del asistente del store
+  // Remove the assistant message from the store
   store.deleteMessage(store.activeId, assistantMsg.id)
-  // Reenviar el mensaje de usuario
+  // Resend the user message
   await send(userMsg.content)
 }
 
-// ── Editar mensaje de usuario (A5) ────────────────────────────
+// ── Edit user message (A5) ────────────────────────────────────
 const editingMsgId = ref<string | null>(null)
 const editingContent = ref('')
 
@@ -189,7 +189,7 @@ async function confirmEditMessage(msg: ChatMessage) {
     return
   }
   const convId = store.activeId
-  // Eliminar este mensaje y todos los posteriores
+  // Delete this message and all subsequent ones
   store.deleteMessagesFrom(convId, msg.id)
   const newContent = editingContent.value.trim()
   editingMsgId.value = null
@@ -197,18 +197,18 @@ async function confirmEditMessage(msg: ChatMessage) {
   await send(newContent)
 }
 
-// ── Resumen de conversación (B2) ─────────────────────────────
+// ── Conversation summary (B2) ─────────────────────────────────
 async function summarize() {
   if (messages.value.length < 4 || streaming.value || loading.value) return
   const context = messages.value
-    .map(m => (m.role === 'user' ? `Usuario: ${m.content}` : `RAG: ${m.content}`))
+    .map(m => (m.role === 'user' ? `User: ${m.content}` : `RAG: ${m.content}`))
     .join('\n')
-  const prompt = `[SISTEMA] Resumí esta conversación en 3-5 puntos clave:\n\n${context}`
-  // Enviar al backend pero NO agregar como mensaje visible del usuario
-  // Hacemos llamada directa al send() que sí lo agrega; según la spec
-  // "el mensaje de sistema NO se agrega al historial visible"
-  // Implementación: mandamos el prompt directamente (es simplemente un mensaje más)
-  // pero con el prefijo [SISTEMA] para indicar al modelo que es un resumen
+  const prompt = `[SYSTEM] Summarize this conversation in 3-5 key points:\n\n${context}`
+  // Send to the backend but do NOT add as a visible user message
+  // We call send() directly which does add it; per the spec
+  // "the system message is NOT added to the visible history"
+  // Implementation: we send the prompt directly (it is just another message)
+  // but with the [SYSTEM] prefix to signal to the model that it is a summary
   await send(prompt)
 }
 </script>
@@ -221,7 +221,7 @@ async function summarize() {
     <div class="px-4 py-3 flex items-center justify-between gap-3 shrink-0 border-b border-white/6 bg-[#111111]">
       <div class="flex items-center gap-2.5">
         <i class="pi pi-comments text-zinc-500 text-sm" />
-        <!-- Título editable -->
+        <!-- Editable title -->
         <template v-if="editingTitle">
           <input
             id="conv-title-input"
@@ -241,7 +241,7 @@ async function summarize() {
             {{ store.activeConversation?.title ?? 'Chat' }}
           </span>
         </template>
-        <span v-if="messages.length" class="text-[0.66rem] text-zinc-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5">{{ messages.length }} mensajes</span>
+        <span v-if="messages.length" class="text-[0.66rem] text-zinc-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5">{{ messages.length }} messages</span>
       </div>
 
       <!-- Search toggle + input -->
@@ -252,35 +252,35 @@ async function summarize() {
         size="small"
         class="text-[0.8rem]! text-zinc-500! hover:text-zinc-300!"
         :class="{ 'text-zinc-300!': showSearch }"
-        title="Buscar en historial"
+        title="Search in history"
         @click="showSearch = !showSearch; if (!showSearch) searchQuery = ''"
       />
       <Transition name="search">
         <input
           v-if="showSearch"
           v-model="searchQuery"
-          placeholder="Buscar en la conversación..."
+          placeholder="Search in conversation..."
           class="bg-white/5 border border-white/10 rounded-lg text-zinc-100 text-[0.8rem] px-2.5 py-1 outline-none w-45 focus:w-55 focus:border-zinc-500 transition-all duration-250"
           autofocus
         />
       </Transition>
       <span v-if="searchQuery" class="text-[0.68rem] text-zinc-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5 whitespace-nowrap">
-        {{ filteredMessages.length }} resultado{{ filteredMessages.length !== 1 ? 's' : '' }}
+        {{ filteredMessages.length }} result{{ filteredMessages.length !== 1 ? 's' : '' }}
       </span>
 
       <div class="flex items-center gap-3">
-        <!-- Resumir (B2) — solo visible con 4+ mensajes -->
+        <!-- Summarize (B2) — only visible with 4+ messages -->
         <Button
           v-if="messages.length >= 4"
           icon="pi pi-list"
           text
           size="small"
           class="text-[0.8rem]! text-zinc-500! hover:text-zinc-300!"
-          title="Resumir conversación"
+          title="Summarize conversation"
           :disabled="streaming || loading"
           @click="summarize()"
         />
-        <!-- Exportar Markdown -->
+        <!-- Export Markdown -->
         <Button
           v-if="messages.length"
           icon="pi pi-download"
@@ -290,7 +290,7 @@ async function summarize() {
           title="Exportar Markdown"
           @click="exportMarkdown()"
         />
-        <!-- Exportar HTML (B3) -->
+        <!-- Export HTML (B3) -->
         <Button
           v-if="messages.length"
           icon="pi pi-code"
@@ -345,29 +345,29 @@ async function summarize() {
             <i class="pi pi-bolt text-2xl text-blue-500" />
           </div>
           <div>
-            <h3 class="m-0 mb-1 text-[2rem] leading-none font-bold text-zinc-100">¿Por dónde empezar?</h3>
-            <p class="m-0 text-[0.88rem] text-zinc-500 leading-relaxed">Seguí estos pasos para realizar tu primera consulta con IA multimodal.</p>
+            <h3 class="m-0 mb-1 text-[2rem] leading-none font-bold text-zinc-100">Where to start?</h3>
+            <p class="m-0 text-[0.88rem] text-zinc-500 leading-relaxed">Follow these steps to make your first multimodal AI query.</p>
           </div>
           <div class="flex flex-col gap-3 w-full max-w-[430px] text-left">
             <div class="flex items-start gap-3 p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-blue-500/30 transition-colors">
               <span class="shrink-0 w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-[0.72rem] font-bold text-blue-400">1</span>
               <div>
-                <p class="m-0 text-[0.92rem] font-semibold text-zinc-200">Subir documentos</p>
-                <p class="m-0 text-[0.77rem] text-zinc-500 mt-0.5">Abrí el panel lateral derecho <span class="text-zinc-300">Documentos</span> y cargá tus archivos PDF, imágenes o texto plano.</p>
+                <p class="m-0 text-[0.92rem] font-semibold text-zinc-200">Upload documents</p>
+                <p class="m-0 text-[0.77rem] text-zinc-500 mt-0.5">Open the right sidebar panel <span class="text-zinc-300">Documents</span> and upload your PDF, image, or plain text files.</p>
               </div>
             </div>
             <div class="flex items-start gap-3 p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-blue-500/30 transition-colors">
               <span class="shrink-0 w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-[0.72rem] font-bold text-purple-400">2</span>
               <div>
-                <p class="m-0 text-[0.92rem] font-semibold text-zinc-200">Ingestar al índice</p>
-                <p class="m-0 text-[0.77rem] text-zinc-500 mt-0.5">En la sección <span class="text-zinc-300">Ingestión</span>, procesá los documentos para que la IA pueda leerlos y entender el contexto.</p>
+                <p class="m-0 text-[0.92rem] font-semibold text-zinc-200">Ingest into the index</p>
+                <p class="m-0 text-[0.77rem] text-zinc-500 mt-0.5">In the <span class="text-zinc-300">Ingestion</span> section, process the documents so the AI can read them and understand the context.</p>
               </div>
             </div>
             <div class="flex items-start gap-3 p-5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-blue-500/30 transition-colors">
               <span class="shrink-0 w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-[0.72rem] font-bold text-emerald-400">3</span>
               <div>
-                <p class="m-0 text-[0.92rem] font-semibold text-zinc-200">Hacé tu consulta</p>
-                <p class="m-0 text-[0.77rem] text-zinc-500 mt-0.5">Escribí tu pregunta en el cuadro de abajo y presioná <kbd class="text-[0.62rem] bg-zinc-800 border border-white/10 rounded px-1.5 py-0.5">Ctrl+Enter</kbd> para enviar.</p>
+                <p class="m-0 text-[0.92rem] font-semibold text-zinc-200">Ask your question</p>
+                <p class="m-0 text-[0.77rem] text-zinc-500 mt-0.5">Type your question in the box below and press <kbd class="text-[0.62rem] bg-zinc-800 border border-white/10 rounded px-1.5 py-0.5">Ctrl+Enter</kbd> to send.</p>
               </div>
             </div>
           </div>
@@ -387,10 +387,10 @@ async function summarize() {
                   @keydown.ctrl.enter="confirmEditMessage(msg)"
                 />
                 <div class="flex gap-2 justify-end mt-2">
-                  <Button label="Enviar" icon="pi pi-send" size="small" class="bg-cape-cod-400/15! text-cape-cod-400! border-cape-cod-400/30!"
+                  <Button label="Send" icon="pi pi-send" size="small" class="bg-cape-cod-400/15! text-cape-cod-400! border-cape-cod-400/30!"
                     :disabled="!editingContent.trim()"
                     @click="confirmEditMessage(msg)" />
-                  <Button label="Cancelar" text size="small" @click="editingMsgId = null" />
+                  <Button label="Cancel" text size="small" @click="editingMsgId = null" />
                 </div>
               </template>
               <template v-else>
@@ -400,7 +400,7 @@ async function summarize() {
                     icon="pi pi-pencil"
                     text rounded size="small"
                     class="text-cape-cod-500! hover:text-cape-cod-300! hover:bg-white/5! w-7! h-7! p-0!"
-                    title="Editar mensaje"
+                    title="Edit message"
                     @click="startEditMessage(msg)"
                   />
                 </div>
@@ -423,30 +423,30 @@ async function summarize() {
               <div class="markdown-body" v-html="renderMarkdown(msg.content)" />
               <SourcesDisplay v-if="msg.sources?.length" :sources="msg.sources" />
               <div class="flex flex-wrap items-center gap-1 mt-2.5 pt-2 border-t border-white/10 opacity-60 group-hover:opacity-100 transition-opacity">
-                <span v-if="msg.nodes_retrieved" class="text-[0.7rem] text-cape-cod-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5 mr-auto">{{ msg.nodes_retrieved }} nodos</span>
+                <span v-if="msg.nodes_retrieved" class="text-[0.7rem] text-cape-cod-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5 mr-auto">{{ msg.nodes_retrieved }} nodes</span>
                 <Button
                   icon="pi pi-copy"
                   text rounded size="small"
                   class="text-cape-cod-500! hover:text-cape-cod-300! hover:bg-white/5! w-7! h-7! p-0!"
-                  title="Copiar respuesta"
+                  title="Copy response"
                   @click="copyText(msg.content)"
                 />
-                <!-- Regenerar (A5) -->
+                <!-- Regenerate (A5) -->
                 <Button
                   icon="pi pi-refresh"
                   text rounded size="small"
                   class="text-cape-cod-500! hover:text-cape-cod-300! hover:bg-white/5! w-7! h-7! p-0!"
-                  title="Regenerar respuesta"
+                  title="Regenerate response"
                   :disabled="streaming || loading"
                   @click="regenerate(msg)"
                 />
-                <!-- Pin de mensaje (B1) -->
+                <!-- Pin message (B1) -->
                 <Button
                   icon="pi pi-bookmark"
                   text rounded size="small"
                   class="w-7! h-7! p-0! hover:bg-white/5!"
                   :class="[msg.pinned ? 'text-yellow-400!' : 'text-cape-cod-500! hover:text-cape-cod-300!']"
-                  title="Pinear mensaje"
+                  title="Pin message"
                   @click="toggleMessagePin(msg)"
                 />
                 <Button
@@ -454,7 +454,7 @@ async function summarize() {
                   text rounded size="small"
                   class="w-7! h-7! p-0! hover:bg-white/5!"
                   :class="[msg.rating === 1 ? 'text-green-400!' : 'text-cape-cod-500! hover:text-cape-cod-300!']"
-                  title="Buena respuesta"
+                  title="Good response"
                   @click="handleFeedback(msg, 1)"
                 />
                 <Button
@@ -462,7 +462,7 @@ async function summarize() {
                   text rounded size="small"
                   class="w-7! h-7! p-0! hover:bg-white/5!"
                   :class="[msg.rating === -1 ? 'text-red-400!' : 'text-cape-cod-500! hover:text-cape-cod-300!']"
-                  title="Mala respuesta"
+                  title="Bad response"
                   @click="handleFeedback(msg, -1)"
                 />
               </div>
@@ -522,7 +522,7 @@ async function summarize() {
         <div class="relative bg-zinc-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
       <Textarea
         v-model="inputText"
-        placeholder="Ej: Explicame el algoritmo de Dijkstra con el ejemplo del apunte... (Ctrl+Enter para enviar)"
+        placeholder="E.g.: Explain Dijkstra's algorithm with the example from the notes... (Ctrl+Enter to send)"
         :rows="3"
         class="w-full !bg-transparent !border-none !rounded-none text-zinc-200 text-[0.92rem] leading-relaxed min-h-[118px] p-5 placeholder:!text-zinc-600"
         :disabled="streaming"
@@ -539,7 +539,7 @@ async function summarize() {
         </span>
         </div>
         <Button
-          label="Enviar"
+          label="Send"
           icon="pi pi-send"
           :loading="loading || streaming"
           :disabled="!inputText.trim() || streaming"
@@ -556,7 +556,7 @@ async function summarize() {
 </template>
 
 <style scoped>
-/* Markdown body styling inside Tailwind context */
+/* Markdown body styles inside Tailwind context */
 .markdown-body {
   color: #fafafa;
   word-break: break-word;

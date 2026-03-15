@@ -42,7 +42,7 @@ export function useDocuments() {
       const res = await ragApi.listDocuments(col)
       documents.value = res.documents
     } catch (e: any) {
-      error.value = e?.response?.data?.detail ?? 'Error al obtener documentos'
+      error.value = e?.response?.data?.detail ?? 'Error fetching documents'
     } finally {
       loading.value = false
     }
@@ -57,7 +57,7 @@ export function useDocuments() {
       await fetchDocuments()
       return res.message
     } catch (e: any) {
-      error.value = e?.response?.data?.detail ?? 'Error al subir archivo'
+      error.value = e?.response?.data?.detail ?? 'Error uploading file'
       throw e
     } finally {
       loading.value = false
@@ -73,7 +73,7 @@ export function useDocuments() {
       await fetchDocuments()
       return res.message
     } catch (e: any) {
-      error.value = e?.response?.data?.detail ?? 'Error al eliminar documento'
+      error.value = e?.response?.data?.detail ?? 'Error deleting document'
       throw e
     } finally {
       loading.value = false
@@ -99,7 +99,7 @@ export function useIngest() {
       const res = await ragApi.triggerIngest({ force_reingest: force }, col)
       message.value = res.message
     } catch (e: any) {
-      error.value = e?.response?.data?.detail ?? 'Error al iniciar ingestión'
+      error.value = e?.response?.data?.detail ?? 'Error starting ingestion'
     } finally {
       loading.value = false
     }
@@ -124,7 +124,7 @@ export function useQuery() {
       result.value = await ragApi.queryRag({ query: q, top_k: topK }, col)
     } catch (e: any) {
       const detail = e?.response?.data?.detail
-      error.value = typeof detail === 'string' ? detail : 'Error al consultar el RAG'
+      error.value = typeof detail === 'string' ? detail : 'Error querying the RAG'
     } finally {
       loading.value = false
     }
@@ -135,14 +135,14 @@ export function useQuery() {
 
 // ── Ingest Status ─────────────────────────────────────────────
 /**
- * Consulta GET /ingest/status?collection=... cada 3s mientras status === 'running'.
- * Se detiene automáticamente al completarse o fallar.
+ * Polls GET /ingest/status?collection=... every 3s while status === 'running'.
+ * Stops automatically on completion or failure.
  */
 export function useIngestStatus() {
   const collectionStore = useCollectionStore()
   const ingestStatus = ref<IngestStatus>({
     status: 'idle',
-    message: 'Sin ingestión previa.',
+    message: 'No previous ingestion.',
     started_at: null,
     finished_at: null,
   })
@@ -178,7 +178,7 @@ export function useIngestStatus() {
     _timeoutId = setTimeout(() => _poll(next), next)
   }
 
-  /** Llama a esto tras disparar /ingest para iniciar el polling. */
+  /** Call this after triggering /ingest to start polling. */
   function startPolling() {
     _stopPolling()
     isPolling.value = true
@@ -203,7 +203,7 @@ export function useReset() {
       const res = await ragApi.resetCollection()
       message.value = res.message
     } catch (e: any) {
-      error.value = e?.response?.data?.detail ?? 'Error al resetear colección'
+      error.value = e?.response?.data?.detail ?? 'Error resetting collection'
     } finally {
       loading.value = false
     }
@@ -224,7 +224,7 @@ export function useChat() {
   const topK = ref(3)
   const fileTypeFilter = ref<string | null>(null)
 
-  // Las messages y el sessionId viven en el store
+  // Messages and sessionId live in the store
   const messages = computed(() => convStore.activeConversation?.messages ?? [])
   const sessionId = computed(() => convStore.activeConversation?.sessionId ?? '')
 
@@ -242,7 +242,7 @@ export function useChat() {
     }
     convStore.addMessage(convId, userMsg)
 
-    // Agregar burbuja de asistente vacía para actualizar luego
+    // Add empty assistant bubble to update later
     const assistantMsgId = crypto.randomUUID()
     const assistantMsg: ChatMessage = {
       id: assistantMsgId,
@@ -262,12 +262,12 @@ export function useChat() {
       { message, session_id: sessionId.value, top_k: topK.value, file_type_filter: fileTypeFilter.value || null } as ChatRequest,
       (token) => {
         streamingText.value += token
-        // Actualizar el mensaje del asistente en el store en tiempo real
+        // Update the assistant message in the store in real time
         convStore.updateLastAssistantMessage(convId, streamingText.value)
       },
       (data) => {
         convStore.updateLastAssistantMessage(convId, streamingText.value, data.sources as SourceInfo[])
-        // Actualizar query_id y nodes_retrieved en el último mensaje del asistente
+        // Update query_id and nodes_retrieved on the last assistant message
         const conv = convStore.activeConversation
         if (conv) {
           const lastAssistant = [...conv.messages].reverse().find(m => m.role === 'assistant')
@@ -281,7 +281,7 @@ export function useChat() {
         loading.value = false
       },
       () => {
-        // onDone — si sources no llegó, cerrar igual
+        // onDone — if sources did not arrive, close anyway
         if (streaming.value) {
           convStore.updateLastAssistantMessage(convId, streamingText.value)
           streamingText.value = ''
@@ -291,7 +291,7 @@ export function useChat() {
       },
       (err) => {
         error.value = err
-        // Eliminar el mensaje de asistente vacío si hubo error
+        // Remove the empty assistant message if there was an error
         convStore.deleteMessage(convId, assistantMsgId)
         streamingText.value = ''
         streaming.value = false
@@ -327,35 +327,35 @@ export function useChat() {
   }
 
   function exportConversation(format: 'md' | 'html') {
-    const title = convStore.activeConversation?.title ?? 'Conversación RAG'
-    const now = new Date().toLocaleString('es-AR')
+    const title = convStore.activeConversation?.title ?? 'RAG Conversation'
+    const now = new Date().toLocaleString('en-US')
 
     if (format === 'md') {
-      const lines: string[] = [`# ${title}\n`, `> Exportada el ${now}\n`]
+      const lines: string[] = [`# ${title}\n`, `> Exported on ${now}\n`]
       for (const msg of messages.value) {
         if (msg.role === 'user') {
-          lines.push(`\n**👤 Tú:**\n\n${msg.content}\n`)
+          lines.push(`\n**👤 You:**\n\n${msg.content}\n`)
         } else {
           lines.push(`\n**🤖 RAG:**\n\n${msg.content}\n`)
           if (msg.sources?.length) {
-            lines.push('\n**Fuentes:** ' + msg.sources.map(s => s.filename).join(', ') + '\n')
+            lines.push('\n**Sources:** ' + msg.sources.map(s => s.filename).join(', ') + '\n')
           }
         }
       }
       const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
-      _downloadBlob(blob, `conversacion-rag-${Date.now()}.md`)
+      _downloadBlob(blob, `rag-conversation-${Date.now()}.md`)
     } else {
-      // HTML con estilos inline oscuros
+      // HTML with dark inline styles
       const msgHtml = messages.value.map(msg => {
         if (msg.role === 'user') {
           return `<div style="display:flex;justify-content:flex-end;margin:1rem 0">
             <div style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.25);border-radius:12px;padding:0.875rem 1.125rem;max-width:75%;color:#e2e8f0;white-space:pre-wrap">${_escapeHtml(msg.content)}</div>
           </div>`
         } else {
-          // Para HTML, usamos el contenido tal cual (ya es markdown; en HTML export lo renderizamos inline)
+          // For HTML, we use the content as-is (already markdown; in HTML export we render it inline)
           const contentHtml = _parseMarkdownToHtml(msg.content)
           const sourcesHtml = msg.sources?.length
-            ? `<div style="font-size:0.75rem;color:#94a3b8;margin-top:0.5rem">Fuentes: ${msg.sources.map(s => _escapeHtml(s.filename)).join(', ')}</div>`
+            ? `<div style="font-size:0.75rem;color:#94a3b8;margin-top:0.5rem">Sources: ${msg.sources.map(s => _escapeHtml(s.filename)).join(', ')}</div>`
             : ''
           return `<div style="display:flex;align-items:flex-start;gap:0.75rem;margin:1rem 0">
             <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:0.875rem 1.125rem;max-width:85%;color:#e2e8f0">${contentHtml}${sourcesHtml}</div>
@@ -364,7 +364,7 @@ export function useChat() {
       }).join('\n')
 
       const html = `<!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -380,17 +380,17 @@ export function useChat() {
 </head>
 <body>
 <h1>${_escapeHtml(title)}</h1>
-<p class="meta">Exportada el ${now}</p>
+<p class="meta">Exported on ${now}</p>
 ${msgHtml}
 <footer>RAG Multimodal · LlamaIndex · Gemini · Qdrant</footer>
 </body>
 </html>`
       const blob = new Blob([html], { type: 'text/html' })
-      _downloadBlob(blob, `conversacion-rag-${Date.now()}.html`)
+      _downloadBlob(blob, `rag-conversation-${Date.now()}.html`)
     }
   }
 
-  // Alias para compatibilidad con código existente
+  // Alias for compatibility with existing code
   function exportMarkdown() { exportConversation('md') }
 
   function _downloadBlob(blob: Blob, filename: string) {
@@ -407,7 +407,7 @@ ${msgHtml}
   }
 
   function _parseMarkdownToHtml(text: string): string {
-    // Conversión básica para HTML export (sin dependencia de marked en runtime)
+    // Basic conversion for HTML export (no runtime dependency on marked)
     return text
       .replace(/```[\s\S]*?```/g, m => `<pre><code>${_escapeHtml(m.slice(3, -3).replace(/^[a-z]+\n/, ''))}</code></pre>`)
       .replace(/`([^`]+)`/g, (_, c) => `<code>${_escapeHtml(c)}</code>`)

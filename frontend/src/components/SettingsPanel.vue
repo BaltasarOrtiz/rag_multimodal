@@ -16,7 +16,7 @@ import type { RagConfig } from '@/types/rag'
 const toast = useToast()
 const { status, indexLoaded } = useHealth()
 
-// ── Estado ────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────
 const config = ref<RagConfig>({
   llm_model: 'gemini-2.5-flash',
   embedding_model: 'models/gemini-embedding-2-preview',
@@ -30,10 +30,10 @@ const config = ref<RagConfig>({
 })
 const saving = ref(false)
 
-// ── Opciones de selectores ──────────────────────────────────
+// ── Selector options ─────────────────────────────────────────
 const llmOptions = [
-  { label: 'gemini-2.5-flash (recomendado, más rápido)',  value: 'gemini-2.5-flash' },
-  { label: 'gemini-2.5-pro (mayor calidad)',              value: 'gemini-2.5-pro' },
+  { label: 'gemini-2.5-flash (recommended, fastest)',     value: 'gemini-2.5-flash' },
+  { label: 'gemini-2.5-pro (higher quality)',             value: 'gemini-2.5-pro' },
   { label: 'gemini-2.0-flash',                            value: 'gemini-2.0-flash' },
   { label: 'gemini-2.0-flash-lite',                       value: 'gemini-2.0-flash-lite' },
   { label: 'gemini-1.5-pro',                              value: 'gemini-1.5-pro' },
@@ -41,55 +41,55 @@ const llmOptions = [
 ]
 
 const embeddingOptions = [
-  { label: 'models/gemini-embedding-2-preview (recomendado)', value: 'models/gemini-embedding-2-preview' },
+  { label: 'models/gemini-embedding-2-preview (recommended)', value: 'models/gemini-embedding-2-preview' },
   { label: 'models/text-embedding-004',                       value: 'models/text-embedding-004' },
 ]
 
 const rerankerOptions = [
-  { label: 'ms-marco-MiniLM-L-2-v2 (más rápido)',         value: 'cross-encoder/ms-marco-MiniLM-L-2-v2' },
-  { label: 'ms-marco-MiniLM-L-6-v2 (más preciso)',        value: 'cross-encoder/ms-marco-MiniLM-L-6-v2' },
-  { label: 'ms-marco-MiniLM-L-12-v2 (mayor calidad)',     value: 'cross-encoder/ms-marco-MiniLM-L-12-v2' },
+  { label: 'ms-marco-MiniLM-L-2-v2 (fastest)',            value: 'cross-encoder/ms-marco-MiniLM-L-2-v2' },
+  { label: 'ms-marco-MiniLM-L-6-v2 (more precise)',       value: 'cross-encoder/ms-marco-MiniLM-L-6-v2' },
+  { label: 'ms-marco-MiniLM-L-12-v2 (highest quality)',   value: 'cross-encoder/ms-marco-MiniLM-L-12-v2' },
 ]
 
-// ── Chips informativos ────────────────────────────────────────
+// ── Info chips ────────────────────────────────────────────────
 function llmInfo(model: string): string {
   switch (model) {
-    case 'gemini-2.5-flash': return 'Contexto 1M tokens · Rápido'
-    case 'gemini-2.5-pro':   return 'Mayor calidad · Más lento'
-    case 'gemini-2.0-flash': return 'Contexto 1M tokens'
-    case 'gemini-2.0-flash-lite': return 'Más económico'
-    case 'gemini-1.5-pro':   return 'Contexto 2M tokens'
-    case 'gemini-1.5-flash': return 'Contexto 1M tokens'
+    case 'gemini-2.5-flash': return '1M token context · Fast'
+    case 'gemini-2.5-pro':   return 'Higher quality · Slower'
+    case 'gemini-2.0-flash': return '1M token context'
+    case 'gemini-2.0-flash-lite': return 'Most economical'
+    case 'gemini-1.5-pro':   return '2M token context'
+    case 'gemini-1.5-flash': return '1M token context'
     default:                 return ''
   }
 }
 
 function embeddingInfo(model: string): string {
-  if (model === 'models/gemini-embedding-2-preview') return 'Dimensión: 3072'
-  if (model === 'models/text-embedding-004') return 'Dimensión: 768'
+  if (model === 'models/gemini-embedding-2-preview') return 'Dimension: 3072'
+  if (model === 'models/text-embedding-004') return 'Dimension: 768'
   return ''
 }
 
-// ── Cargar config al montar ─────────────────────────────────
+// ── Load config on mount ──────────────────────────────────────
 onMounted(async () => {
   try {
     const remote = await ragApi.getConfig()
     config.value = remote
   } catch (e: any) {
-    toast.add({ severity: 'warn', summary: 'Aviso', detail: 'No se pudo cargar la configuración del backend', life: 4000 })
+    toast.add({ severity: 'warn', summary: 'Warning', detail: 'Could not load backend configuration', life: 4000 })
   }
 })
 
-// ── Guardar con debounce ──────────────────────────────────────
+// ── Save with debounce ────────────────────────────────────────
 let sliderTimer: ReturnType<typeof setTimeout> | null = null
 
 async function save(patch: Partial<RagConfig>) {
   saving.value = true
   try {
     await ragApi.updateConfig(patch)
-    toast.add({ severity: 'success', summary: 'Guardado', detail: 'Configuración actualizada', life: 2500 })
+    toast.add({ severity: 'success', summary: 'Saved', detail: 'Configuration updated', life: 2500 })
   } catch (e: any) {
-    const detail = e?.response?.data?.detail ?? 'Error al guardar configuración'
+    const detail = e?.response?.data?.detail ?? 'Error saving configuration'
     toast.add({ severity: 'error', summary: 'Error', detail, life: 4000 })
   } finally {
     saving.value = false
@@ -109,10 +109,10 @@ function saveHyde(value: boolean) {
   save({ enable_hyde: value }).then(() => {
     toast.add({
       severity: 'info',
-      summary: `HyDE ${value ? 'activado' : 'desactivado'}`,
+      summary: `HyDE ${value ? 'enabled' : 'disabled'}`,
       detail: value
-        ? 'El LLM generará un documento hipotético antes de buscar. Las sesiones de chat activas se han reiniciado para aplicar el cambio.'
-        : 'Las sesiones de chat activas se han reiniciado.',
+        ? 'The LLM will generate a hypothetical document before searching. Active chat sessions have been reset to apply the change.'
+        : 'Active chat sessions have been reset.',
       life: 5000,
     })
   })
@@ -123,8 +123,8 @@ function saveSemanticChunking(value: boolean) {
     if (value) {
       toast.add({
         severity: 'warn',
-        summary: 'Re-ingestión requerida',
-        detail: 'El chunking semántico solo se aplica en el próximo proceso de ingestión. Re-ingesta los documentos para activarlo.',
+        summary: 'Re-ingestion required',
+        detail: 'Semantic chunking only applies on the next ingestion run. Re-ingest documents to activate it.',
         life: 7000,
       })
     }
@@ -136,18 +136,18 @@ function saveSemanticChunking(value: boolean) {
   <div class="settings-panel glass-card">
     <Tabs value="0">
       <TabList>
-        <Tab value="0"><i class="pi pi-cpu" /> Modelos</Tab>
-        <Tab value="1"><i class="pi pi-sliders-h" /> Búsqueda RAG</Tab>
-        <Tab value="2"><i class="pi pi-info-circle" /> Sistema</Tab>
+        <Tab value="0"><i class="pi pi-cpu" /> Models</Tab>
+        <Tab value="1"><i class="pi pi-sliders-h" /> RAG Search</Tab>
+        <Tab value="2"><i class="pi pi-info-circle" /> System</Tab>
       </TabList>
 
-      <!-- ─── TAB 1: Modelos ──────────────────────────────── -->
+      <!-- ─── TAB 1: Models ───────────────────────────────── -->
       <TabPanels>
         <TabPanel value="0">
           <div class="tab-content">
             <!-- LLM -->
             <div class="field-group">
-              <label class="field-label">Modelo LLM</label>
+              <label class="field-label">LLM Model</label>
               <Select
                 v-model="config.llm_model"
                 :options="llmOptions"
@@ -163,7 +163,7 @@ function saveSemanticChunking(value: boolean) {
 
             <!-- Embedding -->
             <div class="field-group">
-              <label class="field-label">Modelo de Embedding</label>
+              <label class="field-label">Embedding Model</label>
               <Select
                 v-model="config.embedding_model"
                 :options="embeddingOptions"
@@ -181,20 +181,20 @@ function saveSemanticChunking(value: boolean) {
             <div class="warning-box">
               <i class="pi pi-exclamation-triangle" />
               <span>
-                Cambiar el modelo de embedding requiere re-ingestar los documentos
-                para regenerar los vectores con el nuevo modelo.
+                Changing the embedding model requires re-ingesting documents
+                to regenerate the vectors with the new model.
               </span>
             </div>
           </div>
         </TabPanel>
 
-        <!-- ─── TAB 2: Búsqueda RAG ────────────────────── -->
+        <!-- ─── TAB 2: RAG Search ─────────────────────── -->
         <TabPanel value="1">
           <div class="tab-content">
-            <!-- Búsqueda híbrida -->
+            <!-- Hybrid search -->
             <div class="toggle-row">
               <div class="toggle-info">
-                <span class="toggle-label">Búsqueda híbrida</span>
+                <span class="toggle-label">Hybrid search</span>
                 <span class="toggle-desc">Dense + Sparse (BM25)</span>
               </div>
               <ToggleSwitch
@@ -203,11 +203,11 @@ function saveSemanticChunking(value: boolean) {
               />
             </div>
 
-            <!-- Alpha híbrido (solo si hybrid activo) -->
+            <!-- Hybrid alpha (only when hybrid is active) -->
             <Transition name="fade">
               <div v-if="config.enable_hybrid" class="field-group indent-field">
                 <label class="field-label">
-                  Alpha híbrido <span class="alpha-hint">Dense ← {{ config.hybrid_alpha.toFixed(2) }} → Sparse</span>
+                  Hybrid alpha <span class="alpha-hint">Dense ← {{ config.hybrid_alpha.toFixed(2) }} → Sparse</span>
                 </label>
                 <Slider
                   v-model="config.hybrid_alpha"
@@ -232,10 +232,10 @@ function saveSemanticChunking(value: boolean) {
               />
             </div>
 
-            <!-- Modelo reranker (solo si reranker activo) -->
+            <!-- Reranker model (only when reranker is active) -->
             <Transition name="fade">
               <div v-if="config.enable_reranker" class="field-group indent-field">
-                <label class="field-label">Modelo reranker</label>
+                <label class="field-label">Reranker model</label>
                 <Select
                   v-model="config.reranker_model"
                   :options="rerankerOptions"
@@ -251,7 +251,7 @@ function saveSemanticChunking(value: boolean) {
             <div class="toggle-row">
               <div class="toggle-info">
                 <span class="toggle-label">HyDE</span>
-                <span class="toggle-desc">Genera un documento hipotético antes de buscar · Aplica de inmediato</span>
+                <span class="toggle-desc">Generates a hypothetical document before searching · Applies immediately</span>
               </div>
               <ToggleSwitch
                 v-model="config.enable_hyde"
@@ -259,11 +259,11 @@ function saveSemanticChunking(value: boolean) {
               />
             </div>
 
-            <!-- Chunking semántico -->
+            <!-- Semantic chunking -->
             <div class="toggle-row">
               <div class="toggle-info">
-                <span class="toggle-label">Chunking semántico</span>
-                <span class="toggle-desc">Divide por significado en vez de tamaño fijo</span>
+                <span class="toggle-label">Semantic chunking</span>
+                <span class="toggle-desc">Splits by meaning instead of fixed size</span>
               </div>
               <ToggleSwitch
                 v-model="config.enable_semantic_chunking"
@@ -273,13 +273,13 @@ function saveSemanticChunking(value: boolean) {
             <Transition name="fade">
               <div v-if="config.enable_semantic_chunking" class="warning-box">
                 <i class="pi pi-refresh" />
-                <span>Requiere re-ingestión para aplicar el nuevo modo de chunking a los documentos existentes.</span>
+                <span>Requires re-ingestion to apply the new chunking mode to existing documents.</span>
               </div>
             </Transition>
           </div>
         </TabPanel>
 
-        <!-- ─── TAB 3: Sistema ──────────────────────────── -->
+        <!-- ─── TAB 3: System ───────────────────────────── -->
         <TabPanel value="2">
           <div class="tab-content">
             <div class="sys-grid">
@@ -289,24 +289,24 @@ function saveSemanticChunking(value: boolean) {
                 <span class="sys-value">LlamaIndex · Gemini · Qdrant · FastAPI · Vue 3</span>
               </div>
 
-              <!-- Versión -->
+              <!-- Version -->
               <div class="sys-card">
-                <span class="sys-label"><i class="pi pi-tag" /> Versión</span>
+                <span class="sys-label"><i class="pi pi-tag" /> Version</span>
                 <span class="sys-value">1.0.0</span>
               </div>
 
-              <!-- Estado API -->
+              <!-- API Status -->
               <div class="sys-card">
-                <span class="sys-label"><i class="pi pi-server" /> Estado de la API</span>
+                <span class="sys-label"><i class="pi pi-server" /> API Status</span>
                 <span class="sys-value" :class="status === 'ok' ? 'status-ok' : 'status-err'">
                   <span class="status-dot" :class="status" />
-                  {{ status === 'ok' ? `OK · Index ${indexLoaded ? 'cargado' : 'vacío'}` : status === 'loading' ? 'Conectando…' : 'Sin conexión' }}
+                  {{ status === 'ok' ? `OK · Index ${indexLoaded ? 'loaded' : 'empty'}` : status === 'loading' ? 'Connecting…' : 'No connection' }}
                 </span>
               </div>
 
               <!-- Embedding dim -->
               <div class="sys-card">
-                <span class="sys-label"><i class="pi pi-database" /> Dimensión de embeddings</span>
+                <span class="sys-label"><i class="pi pi-database" /> Embedding dimension</span>
                 <span class="sys-value">{{ config.embedding_dim }}</span>
               </div>
             </div>

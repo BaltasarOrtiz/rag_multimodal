@@ -1,149 +1,148 @@
-# RAG Multimodal — Instrucciones para Agente IA
+# RAG Multimodal — AI Agent Instructions
 
-## Contexto del Proyecto
+## Project Context
 
-Sistema **RAG Multimodal** fullstack con chat multi-turn y streaming SSE.
-Permite subir documentos (PDF, imágenes, texto/markdown), ingestarlos en una
-base vectorial y consultarlos mediante chat generado por IA con respuestas en
-tiempo real.
+**RAG Multimodal** fullstack system with multi-turn chat and SSE streaming.
+Allows uploading documents (PDF, images, text/markdown), ingesting them into a
+vector database and querying them via AI-generated chat with real-time responses.
 
 **Stack:**
 - Backend: Python 3.11 + FastAPI + LlamaIndex + `llama-index-llms-google-genai`
   + Gemini 2.5 Flash + Gemini Embedding 2 Preview + Qdrant
 - Frontend: Vue 3 (Composition API) + TypeScript + PrimeVue 4 + Axios + Vite
-- Infra: Docker Compose (3 servicios: `qdrant`, `api`, `frontend`)
-- Búsqueda: híbrida dense+sparse (BM25 via fastembed) + reranking cross-encoder
+- Infra: Docker Compose (3 services: `qdrant`, `api`, `frontend`)
+- Search: hybrid dense+sparse (BM25 via fastembed) + cross-encoder reranking
 
 ---
 
-## Comandos Esenciales
+## Essential Commands
 
 ```bash
-# Desarrollo (hot-reload via override)
+# Development (hot-reload via override)
 docker compose up -d
 docker compose logs -f api
 
-# Producción
+# Production
 docker compose -f docker-compose.yml up -d
 
-# Frontend fuera de Docker
+# Frontend outside Docker
 cd frontend && npm run dev   # http://localhost:5173
 
-# Tests backend
+# Backend tests
 cd backend && pytest tests/ -v
 
-# Tests frontend
+# Frontend tests
 cd frontend && npm run test
 
-# Rebuild limpio tras cambios en Dockerfile o requirements
+# Clean rebuild after Dockerfile or requirements changes
 docker compose build --no-cache
 docker compose up -d
 ```
 
 ---
 
-## Estructura Canónica del Proyecto
+## Canonical Project Structure
 
 ```
 rag_multimodal/
 ├── AGENTS.md
-├── .env                          # No commitear — ignorado en .gitignore
-├── .env.example                  # Plantilla pública con valores de ejemplo
+├── .env                          # Do not commit — ignored in .gitignore
+├── .env.example                  # Public template with example values
 ├── .gitignore
 ├── .github/
-│   └── copilot-instructions.md  # Mismo contenido que AGENTS.md
+│   └── copilot-instructions.md  # Same content as AGENTS.md
 ├── .claude/
-│   └── rules/project.md         # Mismo contenido que AGENTS.md
+│   └── rules/project.md         # Same content as AGENTS.md
 ├── docker-compose.yml
 ├── docker-compose.override.yml
-├── qdrant_storage/               # Volumen persistente — NO borrar
+├── qdrant_storage/               # Persistent volume — DO NOT delete
 ├── backend/
 └── frontend/
 ```
 
 ---
 
-## BACKEND — Reglas y Estructura
+## BACKEND — Rules and Structure
 
-### Estructura de carpetas obligatoria
+### Mandatory folder structure
 
 ```
 backend/
 ├── main.py               # FastAPI app: lifespan, CORS, routers, rate limiting
-├── config.py             # Settings con pydantic-settings (BaseSettings)
-├── logger.py             # Logger estructurado JSON con loguru
-├── eval_pipeline.py      # CLI para evaluación RAGAS (no tocar en features)
+├── config.py             # Settings with pydantic-settings (BaseSettings)
+├── logger.py             # Structured JSON logger with loguru
+├── eval_pipeline.py      # CLI for RAGAS evaluation (do not touch in features)
 ├── requirements.txt
 ├── Dockerfile
 ├── .dockerignore
 │
 ├── rag/
 │   ├── __init__.py
-│   ├── ingest.py         # Pipeline completo: carga → chunking → embed → Qdrant
-│   ├── query.py          # RAG single-turn + chat multi-turn + SSE streaming
-│   └── models.py         # Schemas Pydantic para TODOS los request/response
+│   ├── ingest.py         # Full pipeline: load → chunking → embed → Qdrant
+│   ├── query.py          # RAG single-turn + multi-turn chat + SSE streaming
+│   └── models.py         # Pydantic schemas for ALL requests/responses
 │
-├── data/                 # Documentos subidos (volumen Docker — NO tocar en código)
-├── storage/              # Índice persistido de LlamaIndex (JSON — NO borrar)
+├── data/                 # Uploaded documents (Docker volume — DO NOT touch in code)
+├── storage/              # LlamaIndex persisted index (JSON — DO NOT delete)
 │
 └── tests/
     ├── conftest.py       # Fixtures: app, client, mock_index
-    └── test_api.py       # Tests de integración con httpx + pytest-asyncio
+    └── test_api.py       # Integration tests with httpx + pytest-asyncio
 ```
 
-### Reglas del Backend
+### Backend Rules
 
-**Módulos y responsabilidades:**
+**Modules and responsibilities:**
 
-- `main.py` solo contiene: instancia FastAPI, lifespan, middleware, inclusión
-  de routers y endpoints simples. **Nunca** lógica de negocio en `main.py`.
-- `rag/ingest.py` es el único lugar donde se instancia `SimpleDirectoryReader`,
-  `SentenceSplitter`, `GoogleGenAIEmbedding` y se escribe en Qdrant.
-- `rag/query.py` es el único lugar donde se instancia `GoogleGenAI` (LLM),
-  `ChatMemoryBuffer`, `CondensePlusContextChatEngine` y se genera SSE.
-- `rag/models.py` contiene **todos** los schemas Pydantic. Nunca inline en los
-  endpoints. Separar siempre `*Request` de `*Response`.
-- `config.py` usa `pydantic-settings`. Todos los accesos a variables de entorno
-  deben hacerse a través del objeto `settings`. **Nunca** `os.environ.get()`
-  directo en los módulos.
+- `main.py` only contains: FastAPI instance, lifespan, middleware, router
+  inclusion and simple endpoints. **Never** business logic in `main.py`.
+- `rag/ingest.py` is the only place where `SimpleDirectoryReader`,
+  `SentenceSplitter`, `GoogleGenAIEmbedding` are instantiated and written to Qdrant.
+- `rag/query.py` is the only place where `GoogleGenAI` (LLM),
+  `ChatMemoryBuffer`, `CondensePlusContextChatEngine` are instantiated and SSE is generated.
+- `rag/models.py` contains **all** Pydantic schemas. Never inline in
+  endpoints. Always separate `*Request` from `*Response`.
+- `config.py` uses `pydantic-settings`. All environment variable accesses
+  must go through the `settings` object. **Never** use `os.environ.get()`
+  directly in modules.
 
 **LlamaIndex / Gemini:**
 
-- Usar **siempre** `from llama_index.llms.google_genai import GoogleGenAI`
-  (nunca `from llama_index.llms.gemini import Gemini` — está deprecado).
-- Usar **siempre** `from llama_index.embeddings.google_genai import GoogleGenAIEmbedding`
-  (nunca `GeminiEmbedding`).
-- Modelo LLM: `gemini-2.5-flash` por defecto.
-- Modelo Embedding: `models/gemini-embedding-2-preview` con `EMBEDDING_DIM=3072`.
-- El índice se carga desde Qdrant en el `lifespan` startup. Si no existe, se
-  crea vacío. **Nunca** recrear el índice en cada request.
+- **Always** use `from llama_index.llms.google_genai import GoogleGenAI`
+  (never `from llama_index.llms.gemini import Gemini` — it is deprecated).
+- **Always** use `from llama_index.embeddings.google_genai import GoogleGenAIEmbedding`
+  (never `GeminiEmbedding`).
+- LLM model: `gemini-2.5-flash` by default.
+- Embedding model: `models/gemini-embedding-2-preview` with `EMBEDDING_DIM=3072`.
+- The index is loaded from Qdrant in the `lifespan` startup. If it does not exist,
+  it is created empty. **Never** recreate the index on each request.
 
-**Seguridad (no omitir en ninguna feature):**
+**Security (do not omit in any feature):**
 
-- Validar tipo de archivo con `filetype` (magic bytes), nunca solo por extensión.
-- Proteger `DELETE /documents/{filename}` contra path traversal usando
-  `pathlib.Path` y verificando que el archivo esté dentro de `./data/`.
-- Si `settings.api_key` está definida, exigir `Authorization: Bearer <token>`.
-  Aplicar `Depends(verify_api_key)` a todos los endpoints que modifican estado.
-- Rate limiting con `slowapi` según la tabla de endpoints definida más abajo.
-- CORS restringido: nunca usar `allow_origins=["*"]` en producción.
-  Usar siempre `settings.cors_origins` (lista explícita desde `.env`).
+- Validate file type with `filetype` (magic bytes), never by extension alone.
+- Protect `DELETE /documents/{filename}` against path traversal using
+  `pathlib.Path` and verifying the file is inside `./data/`.
+- If `settings.api_key` is defined, require `Authorization: Bearer <token>`.
+  Apply `Depends(verify_api_key)` to all endpoints that modify state.
+- Rate limiting with `slowapi` according to the endpoint table defined below.
+- Restricted CORS: never use `allow_origins=["*"]` in production.
+  Always use `settings.cors_origins` (explicit list from `.env`).
 
-**Patrones de código obligatorios:**
+**Mandatory code patterns:**
 
 ```python
-# ✅ Correcto: async endpoints con tipo de retorno explícito
+# ✅ Correct: async endpoints with explicit return type
 @router.post("/upload", response_model=UploadResponse, status_code=201)
 async def upload_file(file: UploadFile = File(...)) -> UploadResponse:
     ...
 
-# ✅ Correcto: background tasks para ingestión
+# ✅ Correct: background tasks for ingestion
 @router.post("/ingest")
 async def start_ingest(background_tasks: BackgroundTasks) -> IngestResponse:
     background_tasks.add_task(run_ingest_pipeline)
     ...
 
-# ✅ Correcto: SSE streaming con EventSourceResponse
+# ✅ Correct: SSE streaming with EventSourceResponse
 @router.post("/chat/stream")
 async def chat_stream(req: ChatRequest) -> EventSourceResponse:
     async def generator():
@@ -152,46 +151,46 @@ async def chat_stream(req: ChatRequest) -> EventSourceResponse:
         yield {"event": "sources", "data": json.dumps(sources)}
     return EventSourceResponse(generator())
 
-# ❌ Prohibido: lógica de negocio en endpoints
+# ❌ Forbidden: business logic in endpoints
 @router.post("/query")
 async def query(req: QueryRequest):
-    results = qdrant_client.search(...)  # ❌ acceso directo a DB en endpoint
-    llm = GoogleGenAI(...)               # ❌ instanciación en cada request
+    results = qdrant_client.search(...)  # ❌ direct DB access in endpoint
+    llm = GoogleGenAI(...)               # ❌ instantiation on each request
 ```
 
-**Manejo de errores:**
+**Error handling:**
 
 ```python
-# Usar siempre HTTPException con detalle descriptivo
-raise HTTPException(status_code=422, detail="Tipo de archivo no soportado")
+# Always use HTTPException with descriptive detail
+raise HTTPException(status_code=422, detail="Unsupported file type")
 
-# Logger estructurado en todos los errores no controlados
-logger.exception("Error en ingestión: {error}", error=str(e))
+# Structured logger on all unhandled errors
+logger.exception("Ingestion error: {error}", error=str(e))
 ```
 
-**Endpoints de la API (referencia para implementación):**
+**API Endpoints (implementation reference):**
 
-| Método | Ruta | Rate Limit | Auth Requerida |
-|--------|------|-----------|----------------|
+| Method | Route | Rate Limit | Auth Required |
+|--------|-------|-----------|---------------|
 | GET | `/health` | — | No |
-| POST | `/upload` | 10/min | Si API_KEY definida |
+| POST | `/upload` | 10/min | If API_KEY defined |
 | GET | `/documents` | — | No |
-| DELETE | `/documents/{filename}` | — | Sí |
-| POST | `/ingest` | 5/min | Sí |
+| DELETE | `/documents/{filename}` | — | Yes |
+| POST | `/ingest` | 5/min | Yes |
 | GET | `/ingest/status` | — | No |
 | POST | `/query` | 20/min | No |
 | POST | `/chat` | 20/min | No |
 | POST | `/chat/stream` | 20/min | No |
 | DELETE | `/chat/{session_id}` | — | No |
 | GET | `/collections` | — | No |
-| DELETE | `/collection` | — | Sí |
+| DELETE | `/collection` | — | Yes |
 | POST | `/feedback` | — | No |
 
 ---
 
-## FRONTEND — Reglas y Estructura
+## FRONTEND — Rules and Structure
 
-### Estructura de carpetas obligatoria
+### Mandatory folder structure
 
 ```
 frontend/
@@ -205,71 +204,71 @@ frontend/
 └── src/
     ├── main.ts             # Bootstrap: createApp + PrimeVue + Router + Pinia
     ├── App.vue             # Root component: <Toast /> + <RouterView />
-    ├── style.css           # Variables CSS globales (dark mode, glassmorphism)
+    ├── style.css           # Global CSS variables (dark mode, glassmorphism)
     │
     ├── api/
-    │   └── ragApi.ts       # Única fuente de verdad para llamadas HTTP
-    │                       # Axios instance con baseURL=/api, interceptors
+    │   └── ragApi.ts       # Single source of truth for HTTP calls
+    │                       # Axios instance with baseURL=/api, interceptors
     │
     ├── types/
-    │   └── rag.ts          # Interfaces TypeScript: mirrors de schemas Pydantic
+    │   └── rag.ts          # TypeScript interfaces: mirrors of Pydantic schemas
     │
-    ├── composables/        # Lógica de estado y side effects (un composable por dominio)
-    │   └── useRag.ts       # Exporta: useHealth, useDocuments, useIngest,
+    ├── composables/        # State logic and side effects (one composable per domain)
+    │   └── useRag.ts       # Exports: useHealth, useDocuments, useIngest,
     │                       #          useQuery, useChat, useIngestStatus, useReset
     │
     ├── components/
-    │   ├── AppHeader.vue       # Header sticky: logo + badge estado API/Index
-    │   ├── DocumentUpload.vue  # Drag&drop + lista documentos + eliminar individual
-    │   ├── IngestPanel.vue     # Botones ingestión + polling estado cada 3s
-    │   ├── QueryPanel.vue      # Chat multi-turn + SSE streaming + feedback
-    │   └── SourcesDisplay.vue  # Chunks fuente con score de relevancia
+    │   ├── AppHeader.vue       # Sticky header: logo + API/Index status badge
+    │   ├── DocumentUpload.vue  # Drag&drop + document list + individual delete
+    │   ├── IngestPanel.vue     # Ingestion buttons + status polling every 3s
+    │   ├── QueryPanel.vue      # Multi-turn chat + SSE streaming + feedback
+    │   └── SourcesDisplay.vue  # Source chunks with relevance score
     │
     ├── views/
-    │   └── HomeView.vue    # Layout: sidebar | área chat principal
+    │   └── HomeView.vue    # Layout: sidebar | main chat area
     │
     ├── router/
-    │   └── index.ts        # createRouter: ruta "/" → HomeView
+    │   └── index.ts        # createRouter: route "/" → HomeView
     │
     └── tests/
-        └── useRag.test.ts  # Tests de composables con Vitest
+        └── useRag.test.ts  # Composable tests with Vitest
 ```
 
-### Reglas del Frontend
+### Frontend Rules
 
-**Convenciones de componentes:**
+**Component conventions:**
 
-- Usar **siempre** `<script setup lang="ts">`. Nunca Options API ni `defineComponent`.
-- Cada componente tiene **una sola responsabilidad**. Si un `.vue` supera 300 líneas,
-  refactorizar en sub-componentes o composables.
-- Props siempre tipadas con `defineProps<{...}>()`. Nunca `props: { ... }` de Options API.
-- Emits siempre tipados con `defineEmits<{...}>()`.
+- **Always** use `<script setup lang="ts">`. Never Options API or `defineComponent`.
+- Each component has **a single responsibility**. If a `.vue` file exceeds 300 lines,
+  refactor into sub-components or composables.
+- Props always typed with `defineProps<{...}>()`. Never `props: { ... }` from Options API.
+- Emits always typed with `defineEmits<{...}>()`.
 
-**Capa de API (`src/api/ragApi.ts`):**
+**API layer (`src/api/ragApi.ts`):**
 
-- **Un único archivo** para todas las llamadas HTTP. Los componentes y composables
-  **nunca** llaman a axios directamente.
-- La instancia axios usa `baseURL: '/api'` (el proxy de nginx redirige al backend).
-- Tipar el retorno de cada función: `Promise<DocumentsResponse>`, etc.
+- **A single file** for all HTTP calls. Components and composables
+  **never** call axios directly.
+- The axios instance uses `baseURL: '/api'` (the nginx proxy redirects to the backend).
+- Type the return of each function: `Promise<DocumentsResponse>`, etc.
 
 ```typescript
-// ✅ Correcto
+// ✅ Correct
 const api = axios.create({ baseURL: '/api' })
 export const getDocuments = (): Promise<DocumentsResponse> =>
   api.get('/documents').then(r => r.data)
 
-// ❌ Prohibido: axios directamente en componentes
+// ❌ Forbidden: axios directly in components
 const { data } = await axios.get('http://localhost:8000/documents')
 ```
 
-**Tipos (`src/types/rag.ts`):**
+**Types (`src/types/rag.ts`):**
 
-- Mantener sincronizados con los schemas Pydantic del backend. Si se modifica un
-  schema en `rag/models.py`, actualizar el tipo correspondiente en `rag.ts`.
-- Usar `interface` para objetos de datos, `type` para uniones/alias.
+- Keep synchronized with the Pydantic schemas in the backend. If a schema
+  in `rag/models.py` is modified, update the corresponding type in `rag.ts`.
+- Use `interface` for data objects, `type` for unions/aliases.
 
 ```typescript
-// Mirrors de los schemas Pydantic
+// Mirrors of Pydantic schemas
 export interface DocumentInfo {
   filename: string
   size: number
@@ -288,14 +287,14 @@ export type IngestStatus = 'idle' | 'running' | 'done' | 'failed'
 
 **Composables (`src/composables/useRag.ts`):**
 
-- Cada composable maneja su propio estado reactivo (`ref`, `computed`) y
-  sus side effects.
-- Los composables devuelven objetos con state + actions con nombres explícitos.
-- El polling de ingestión (cada 3s) vive **únicamente** en `useIngestStatus`
-  y se limpia con `onUnmounted`.
+- Each composable manages its own reactive state (`ref`, `computed`) and
+  its side effects.
+- Composables return objects with state + actions with explicit names.
+- Ingestion polling (every 3s) lives **only** in `useIngestStatus`
+  and is cleaned up with `onUnmounted`.
 
 ```typescript
-// ✅ Patrón correcto de composable
+// ✅ Correct composable pattern
 export function useDocuments() {
   const documents = ref<DocumentInfo[]>([])
   const loading = ref(false)
@@ -306,7 +305,7 @@ export function useDocuments() {
     try {
       documents.value = await getDocuments()
     } catch (e) {
-      error.value = 'Error al obtener documentos'
+      error.value = 'Error fetching documents'
     } finally {
       loading.value = false
     }
@@ -318,14 +317,14 @@ export function useDocuments() {
 
 **SSE Streaming:**
 
-- El streaming SSE en `QueryPanel.vue` se maneja con `fetch` + `ReadableStream`.
-  **Nunca** polling para simular streaming. **Nunca** `EventSource` nativo para
-  endpoints POST (EventSource solo soporta GET).
-- Los tokens se acumulan en un `ref<string>` y se renderizan con `marked` +
-  `DOMPurify` para prevenir XSS.
+- SSE streaming in `QueryPanel.vue` is handled with `fetch` + `ReadableStream`.
+  **Never** polling to simulate streaming. **Never** native `EventSource` for
+  POST endpoints (EventSource only supports GET).
+- Tokens are accumulated in a `ref<string>` and rendered with `marked` +
+  `DOMPurify` to prevent XSS.
 
 ```typescript
-// ✅ Patrón correcto: fetch + ReadableStream para SSE con POST
+// ✅ Correct pattern: fetch + ReadableStream for SSE with POST
 const streamChat = async (message: string) => {
   const response = await fetch('/api/chat/stream', {
     method: 'POST',
@@ -341,49 +340,49 @@ const streamChat = async (message: string) => {
   }
 }
 
-// ❌ Prohibido: EventSource para endpoints POST
-const es = new EventSource('/api/chat/stream')  // ❌ solo soporta GET
+// ❌ Forbidden: EventSource for POST endpoints
+const es = new EventSource('/api/chat/stream')  // ❌ only supports GET
 ```
 
-**Seguridad en frontend:**
+**Frontend security:**
 
-- Todo HTML generado desde respuestas de IA debe pasar por `DOMPurify.sanitize()`
-  antes de usar `v-html`.
-- No exponer `GOOGLE_API_KEY` ni ningún secret en variables `VITE_*`.
-  Solo `VITE_API_BASE_URL` es variable de entorno permitida en frontend.
+- All HTML generated from AI responses must go through `DOMPurify.sanitize()`
+  before using `v-html`.
+- Do not expose `GOOGLE_API_KEY` or any secret in `VITE_*` variables.
+  Only `VITE_API_BASE_URL` is an allowed environment variable in the frontend.
 
 ---
 
-## DOCKER — Reglas
+## DOCKER — Rules
 
-### Servicios en `docker-compose.yml`
+### Services in `docker-compose.yml`
 
 ```yaml
-# Orden de dependencias: qdrant → api → frontend
+# Dependency order: qdrant → api → frontend
 services:
-  qdrant:      # imagen pineada (ej: qdrant/qdrant:v1.13.2), datos en ./qdrant_storage/
-  api:         # puerto 8000, depende de qdrant con healthcheck, monta ./backend/data/
-  frontend:    # puerto 80, depende de api con healthcheck, nginx sirve dist/
+  qdrant:      # pinned image (e.g.: qdrant/qdrant:v1.13.2), data in ./qdrant_storage/
+  api:         # port 8000, depends on qdrant with healthcheck, mounts ./backend/data/
+  frontend:    # port 80, depends on api with healthcheck, nginx serves dist/
 ```
 
-### Reglas de versiones de imágenes
+### Image version rules
 
-- **Nunca usar `latest`** como tag. Siempre pinear versión exacta:
+- **Never use `latest`** as a tag. Always pin an exact version:
   - ✅ `qdrant/qdrant:v1.13.2`
   - ✅ `node:22-alpine3.21`
   - ✅ `nginx:1.27-alpine`
   - ✅ `python:3.11-slim`
   - ❌ `qdrant/qdrant:latest`
 
-### Seguridad de imágenes Alpine — regla obligatoria
+### Alpine image security — mandatory rule
 
-Todas las imágenes base con Alpine **deben incluir** `apk update && apk upgrade --no-cache`
-como primer `RUN` inmediatamente después del `FROM`. Esto parchea los CVEs de
-paquetes del sistema operativo (busybox, musl-libc, libssl, etc.) al momento
-del build sin necesidad de cambiar la imagen base.
+All Alpine-based images **must include** `apk update && apk upgrade --no-cache`
+as the first `RUN` immediately after `FROM`. This patches OS package CVEs
+(busybox, musl-libc, libssl, etc.) at build time without needing to change
+the base image.
 
 ```dockerfile
-# ✅ Correcto — siempre después de cada FROM con Alpine
+# ✅ Correct — always after each FROM with Alpine
 FROM node:22-alpine3.21 AS builder
 RUN apk update && apk upgrade --no-cache
 
@@ -392,15 +391,15 @@ RUN apk update && apk upgrade --no-cache
 ```
 
 ```dockerfile
-# ❌ Prohibido — imagen Alpine sin parchear
+# ❌ Forbidden — unpatched Alpine image
 FROM nginx:1.27-alpine AS final
 COPY --from=builder /app/dist /usr/share/nginx/html
 ```
 
-> **Nota:** El `apk upgrade` del Stage 1 (builder) no afecta la imagen final,
-> pero se incluye por consistencia. El crítico es siempre el Stage 2 (runtime).
+> **Note:** The `apk upgrade` in Stage 1 (builder) does not affect the final image,
+> but is included for consistency. The critical one is always Stage 2 (runtime).
 
-### Estructura correcta del Dockerfile del backend (multi-stage)
+### Correct backend Dockerfile structure (multi-stage)
 
 ```dockerfile
 # ── Stage 1: builder ────────────────────────────────────────
@@ -411,13 +410,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# ── Stage 2: runtime mínimo ─────────────────────────────────
+# ── Stage 2: minimal runtime ─────────────────────────────────
 FROM python:3.11-slim AS final
 RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 curl \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /install /usr/local
 WORKDIR /app
-# Solo archivos necesarios para producción — nunca tests/ ni eval_pipeline.py
+# Only files needed for production — never tests/ or eval_pipeline.py
 COPY main.py config.py logger.py ./
 COPY rag/ ./rag/
 RUN mkdir -p /app/data /app/storage /home/appuser /tmp/fastembed_cache \
@@ -429,7 +428,7 @@ EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-### Estructura correcta del Dockerfile del frontend (multi-stage)
+### Correct frontend Dockerfile structure (multi-stage)
 
 ```dockerfile
 # ── Stage 1: Build ──────────────────────────────────────────
@@ -441,7 +440,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# ── Stage 2: Serve con nginx ────────────────────────────────
+# ── Stage 2: Serve with nginx ────────────────────────────────
 FROM nginx:1.27-alpine AS final
 RUN apk update && apk upgrade --no-cache
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -453,7 +452,7 @@ USER nginx
 EXPOSE 80
 ```
 
-### Nginx (`frontend/nginx.conf`) — configuración obligatoria
+### Nginx (`frontend/nginx.conf`) — mandatory configuration
 
 ```nginx
 server {
@@ -461,35 +460,35 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    client_max_body_size 50M;   # igual que MAX_UPLOAD_MB del backend
+    client_max_body_size 50M;   # same as MAX_UPLOAD_MB in the backend
 
     # SPA fallback
     location / {
         try_files $uri $uri/ /index.html;
     }
 
-    # Proxy al backend — directivas SSE son CRÍTICAS, no eliminar
+    # Proxy to backend — SSE directives are CRITICAL, do not remove
     location /api/ {
         proxy_pass http://api:8000/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_buffering off;           # CRÍTICO para SSE — nunca remover
-        proxy_cache off;               # CRÍTICO para SSE — nunca remover
-        proxy_read_timeout 300s;       # necesario para respuestas largas del LLM
-        chunked_transfer_encoding on;  # CRÍTICO para SSE — nunca remover
+        proxy_buffering off;           # CRITICAL for SSE — never remove
+        proxy_cache off;               # CRITICAL for SSE — never remove
+        proxy_read_timeout 300s;       # required for long LLM responses
+        chunked_transfer_encoding on;  # CRITICAL for SSE — never remove
     }
 }
 ```
 
-### `docker-compose.override.yml` para desarrollo
+### `docker-compose.override.yml` for development
 
-- Backend: montar `./backend:/app` como volumen único (incluye `data/` y `storage/`
-  implícitamente — **no duplicar** mounts de subdirectorios) + `--reload`.
-- Frontend: no necesita override — usar `npm run dev` directamente con Vite.
+- Backend: mount `./backend:/app` as a single volume (includes `data/` and `storage/`
+  implicitly — **do not duplicate** subdirectory mounts) + `--reload`.
+- Frontend: no override needed — use `npm run dev` directly with Vite.
 
 ```yaml
-# ✅ Correcto — sin mounts redundantes
+# ✅ Correct — no redundant mounts
 services:
   api:
     volumes:
@@ -497,83 +496,83 @@ services:
       - fastembed_cache:/tmp/fastembed_cache
     command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-# ❌ Prohibido — mounts redundantes (data/ y storage/ ya están en /app)
+# ❌ Forbidden — redundant mounts (data/ and storage/ are already inside /app)
 services:
   api:
     volumes:
       - ./backend:/app
-      - ./backend/data:/app/data      # redundante
-      - ./backend/storage:/app/storage  # redundante
+      - ./backend/data:/app/data      # redundant
+      - ./backend/storage:/app/storage  # redundant
 ```
 
-### Imagen de Qdrant — no usar `nginxinc/nginx-unprivileged`
+### Qdrant image — do not use `nginxinc/nginx-unprivileged`
 
-**No migrar** a `nginxinc/nginx-unprivileged` en este proyecto. Requeriría
-cambiar el puerto a 8080 y reconfigurar docker-compose.yml, con riesgo de romper
-el pipeline SSE que ya está validado. Mantener `nginx:1.27-alpine` con `apk upgrade`.
+**Do not migrate** to `nginxinc/nginx-unprivileged` in this project. It would require
+changing the port to 8080 and reconfiguring docker-compose.yml, with risk of breaking
+the SSE pipeline that is already validated. Keep `nginx:1.27-alpine` with `apk upgrade`.
 
 ---
 
-## Variables de Entorno — Referencia Completa
+## Environment Variables — Complete Reference
 
-| Variable | Default | Descripción |
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `GOOGLE_API_KEY` | **requerida** | API key de Google AI |
-| `QDRANT_HOST` | `qdrant` | Host del servicio Qdrant |
-| `QDRANT_PORT` | `6333` | Puerto Qdrant |
-| `COLLECTION_NAME` | `facultad_rag` | Nombre colección Qdrant |
-| `EMBEDDING_DIM` | `3072` | Dimensión Gemini Embedding 2 Preview |
-| `ENABLE_HYBRID` | `true` | Búsqueda híbrida dense+sparse BM25 |
+| `GOOGLE_API_KEY` | **required** | Google AI API key |
+| `QDRANT_HOST` | `qdrant` | Qdrant service host |
+| `QDRANT_PORT` | `6333` | Qdrant port |
+| `COLLECTION_NAME` | `facultad_rag` | Qdrant collection name |
+| `EMBEDDING_DIM` | `3072` | Gemini Embedding 2 Preview dimension |
+| `ENABLE_HYBRID` | `true` | Hybrid dense+sparse BM25 search |
 | `ENABLE_RERANKER` | `true` | Cross-encoder reranking |
-| `ENABLE_SEMANTIC_CHUNKING` | `false` | Chunking semántico (más lento) |
+| `ENABLE_SEMANTIC_CHUNKING` | `false` | Semantic chunking (slower) |
 | `ENABLE_HYDE` | `false` | HyDE query transform |
-| `API_KEY` | `null` | Bearer token para endpoints críticos |
-| `MAX_UPLOAD_MB` | `50` | Tamaño máximo de archivos |
-| `API_PORT` | `8000` | Puerto del backend |
-| `CORS_ORIGINS` | `http://localhost,http://localhost:80,http://localhost:5173` | Orígenes CORS (coma) |
+| `API_KEY` | `null` | Bearer token for critical endpoints |
+| `MAX_UPLOAD_MB` | `50` | Maximum file size |
+| `API_PORT` | `8000` | Backend port |
+| `CORS_ORIGINS` | `http://localhost,http://localhost:80,http://localhost:5173` | CORS origins (comma-separated) |
 
-> **Crítico:** `EMBEDDING_DIM=3072` debe coincidir con la colección en Qdrant.
-> Si se cambia el modelo de embedding, eliminar la colección y reingestár.
+> **Critical:** `EMBEDDING_DIM=3072` must match the collection in Qdrant.
+> If the embedding model is changed, delete the collection and re-ingest.
 
 ---
 
-## Anti-Patrones Prohibidos
+## Forbidden Anti-Patterns
 
 ### Backend
-- ❌ Importar `google.generativeai` (usar `google.genai` via `llama-index-llms-google-genai`)
-- ❌ Instanciar el LLM, embeddings o el índice dentro de un endpoint (solo en `lifespan`)
-- ❌ Usar `os.environ.get()` fuera de `config.py`
-- ❌ Lógica de negocio en `main.py`
-- ❌ Schemas Pydantic inline en los endpoints
+- ❌ Import `google.generativeai` (use `google.genai` via `llama-index-llms-google-genai`)
+- ❌ Instantiate the LLM, embeddings or the index inside an endpoint (only in `lifespan`)
+- ❌ Use `os.environ.get()` outside of `config.py`
+- ❌ Business logic in `main.py`
+- ❌ Inline Pydantic schemas in endpoints
 
 ### Frontend
-- ❌ Llamar a axios directamente desde componentes (siempre vía `ragApi.ts`)
-- ❌ Usar `v-html` sin `DOMPurify.sanitize()`
-- ❌ Polling para simular streaming (usar `fetch` + `ReadableStream`)
-- ❌ `EventSource` nativo para endpoints POST (solo soporta GET)
-- ❌ Variables de entorno con secrets en `VITE_*`
-- ❌ Options API (siempre `<script setup lang="ts">`)
+- ❌ Call axios directly from components (always via `ragApi.ts`)
+- ❌ Use `v-html` without `DOMPurify.sanitize()`
+- ❌ Polling to simulate streaming (use `fetch` + `ReadableStream`)
+- ❌ Native `EventSource` for POST endpoints (only supports GET)
+- ❌ Environment variables with secrets in `VITE_*`
+- ❌ Options API (always `<script setup lang="ts">`)
 
 ### Docker
-- ❌ Imagen Alpine sin `apk update && apk upgrade --no-cache` tras el `FROM`
-- ❌ Usar `latest` como tag de imagen (siempre pinear versión)
-- ❌ `proxy_buffering on` en nginx con SSE (corta el stream)
-- ❌ Correr contenedores como `root`
-- ❌ Commitear `.env` al repositorio
-- ❌ Mounts de subdirectorios redundantes en override cuando ya se monta el padre
-- ❌ Copiar `tests/` o `eval_pipeline.py` en la imagen de producción del backend
+- ❌ Alpine image without `apk update && apk upgrade --no-cache` after `FROM`
+- ❌ Use `latest` as an image tag (always pin a version)
+- ❌ `proxy_buffering on` in nginx with SSE (cuts the stream)
+- ❌ Running containers as `root`
+- ❌ Committing `.env` to the repository
+- ❌ Redundant subdirectory mounts in override when the parent is already mounted
+- ❌ Copying `tests/` or `eval_pipeline.py` into the backend production image
 
 ---
 
-## Tests — Convenciones
+## Tests — Conventions
 
 **Backend (`pytest` + `pytest-asyncio` + `httpx`):**
-- Cada endpoint tiene al menos: 1 test happy path + 1 error case.
-- Los fixtures de `conftest.py` proveen `AsyncClient` y un índice mockeado.
-- No conectar a Qdrant real en tests unitarios (usar mock).
-- No importar `settings` directamente en tests — usar `override_settings` o variables de entorno de test.
+- Each endpoint has at least: 1 happy path test + 1 error case.
+- `conftest.py` fixtures provide `AsyncClient` and a mocked index.
+- Do not connect to a real Qdrant in unit tests (use mock).
+- Do not import `settings` directly in tests — use `override_settings` or test environment variables.
 
 **Frontend (`Vitest`):**
-- Los composables se testean con `@vue/test-utils` + `vi.mock` para `ragApi.ts`.
-- Al menos 1 test por composable: estado inicial, llamada exitosa, manejo de error.
-- El mock de `ragApi.ts` debe respetar los tipos definidos en `src/types/rag.ts`.
+- Composables are tested with `@vue/test-utils` + `vi.mock` for `ragApi.ts`.
+- At least 1 test per composable: initial state, successful call, error handling.
+- The `ragApi.ts` mock must respect the types defined in `src/types/rag.ts`.

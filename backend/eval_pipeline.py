@@ -1,23 +1,23 @@
 """
-Evaluación del pipeline RAG con RAGAS.
-Uso:
+RAG pipeline evaluation with RAGAS.
+Usage:
     pip install ragas
     python eval_pipeline.py --questions questions.json
 
-Formato de questions.json:
+questions.json format:
 [
   {
-    "question": "¿Cuál es el teorema de Bayes?",
-    "ground_truth": "El teorema de Bayes establece que P(A|B) = P(B|A)*P(A)/P(B)."
+    "question": "What is Bayes' theorem?",
+    "ground_truth": "Bayes' theorem states that P(A|B) = P(B|A)*P(A)/P(B)."
   },
   ...
 ]
 
-Métricas reportadas:
-  - faithfulness      → ¿La respuesta está soportada por el contexto recuperado?
-  - answer_relevancy  → ¿La respuesta responde la pregunta formulada?
-  - context_recall    → ¿Se recuperaron los chunks correctos?
-  - context_precision → ¿Los chunks recuperados eran relevantes?
+Reported metrics:
+  - faithfulness      → Is the answer supported by the retrieved context?
+  - answer_relevancy  → Does the answer address the question asked?
+  - context_recall    → Were the correct chunks retrieved?
+  - context_precision → Were the retrieved chunks relevant?
 """
 
 import os
@@ -27,17 +27,17 @@ import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 
-# ── Dependencias opcionales ──────────────────────────────────
+# ── Optional dependencies ────────────────────────────────────
 try:
     from datasets import Dataset
     from ragas import evaluate
     from ragas.metrics import faithfulness, answer_relevancy, context_recall, context_precision
 except ImportError:
-    print("❌ ragas o datasets no instalados. Ejecuta: pip install ragas")
+    print("❌ ragas or datasets not installed. Run: pip install ragas")
     sys.exit(1)
 
 # ── RAG pipeline ─────────────────────────────────────────────
-# Asegurar que el backend está en el path al ejecutar desde /backend/
+# Ensure the backend is in the path when running from /backend/
 sys.path.insert(0, str(Path(__file__).parent))
 
 from rag.ingest import get_settings, get_qdrant_client, get_vector_store, load_existing_index, STORAGE_DIR
@@ -47,16 +47,16 @@ from rag.query import query_rag
 def load_questions(path: str) -> list[dict]:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
-    assert isinstance(data, list), "El archivo debe ser una lista JSON de objetos."
+    assert isinstance(data, list), "The file must be a JSON list of objects."
     for item in data:
         assert "question" in item and "ground_truth" in item, (
-            "Cada pregunta necesita 'question' y 'ground_truth'."
+            "Each question requires 'question' and 'ground_truth'."
         )
     return data
 
 
 def run_evaluation(questions: list[dict], top_k: int = 5) -> dict:
-    print("🔧 Cargando settings y el index...")
+    print("🔧 Loading settings and index...")
     get_settings()
     index = load_existing_index()
 
@@ -64,7 +64,7 @@ def run_evaluation(questions: list[dict], top_k: int = 5) -> dict:
 
     for i, item in enumerate(questions, 1):
         q = item["question"]
-        print(f"[{i}/{len(questions)}] Consultando: {q[:80]}...")
+        print(f"[{i}/{len(questions)}] Querying: {q[:80]}...")
         result = query_rag(index, q, top_k=top_k)
         rows["question"].append(q)
         rows["answer"].append(result["answer"])
@@ -72,7 +72,7 @@ def run_evaluation(questions: list[dict], top_k: int = 5) -> dict:
         rows["ground_truth"].append(item["ground_truth"])
 
     dataset = Dataset.from_dict(rows)
-    print("\n⚙️  Calculando métricas RAGAS...")
+    print("\n⚙️  Computing RAGAS metrics...")
     scores = evaluate(
         dataset=dataset,
         metrics=[faithfulness, answer_relevancy, context_recall, context_precision],
@@ -81,10 +81,10 @@ def run_evaluation(questions: list[dict], top_k: int = 5) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluación RAG con RAGAS")
-    parser.add_argument("--questions", required=True, help="Ruta al JSON de preguntas")
-    parser.add_argument("--top_k", type=int, default=5, help="Chunks recuperados por query")
-    parser.add_argument("--output", default="eval_results.json", help="Archivo de salida")
+    parser = argparse.ArgumentParser(description="RAG evaluation with RAGAS")
+    parser.add_argument("--questions", required=True, help="Path to the questions JSON file")
+    parser.add_argument("--top_k", type=int, default=5, help="Chunks retrieved per query")
+    parser.add_argument("--output", default="eval_results.json", help="Output file")
     args = parser.parse_args()
 
     questions = load_questions(args.questions)
@@ -105,7 +105,7 @@ def main():
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✅ Evaluación completada → {args.output}")
+    print(f"\n✅ Evaluation completed → {args.output}")
     print(json.dumps(result["metrics"], indent=2))
 
 

@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # Requerida — falla al arrancar si no está definida
+    # Required — fails on startup if not defined
     google_api_key: str
 
     # Qdrant
@@ -19,16 +19,16 @@ class Settings(BaseSettings):
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-2-v2"
     hybrid_alpha: float = 0.5
 
-    # Modelos
+    # Models
     llm_model: str = "gemini-2.5-flash"
     embedding_model: str = "models/gemini-embedding-2-preview"
 
     # API
     max_upload_mb: int = 50
     api_port: int = 8000
-    # Opcional — auth desactivada si None
+    # Optional — auth disabled if None
     api_key: str | None = None
-    # CORS — orígenes permitidos separados por coma
+    # CORS — allowed origins separated by comma
     cors_origins: str = "http://localhost,http://localhost:80,http://localhost:5173,http://localhost:3000,http://frontend"
 
     model_config = SettingsConfigDict(

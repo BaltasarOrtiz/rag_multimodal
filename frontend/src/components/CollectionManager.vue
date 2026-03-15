@@ -14,7 +14,7 @@ const store = useCollectionStore()
 const toast = useToast()
 const confirm = useConfirm()
 
-// ── Diálogo crear colección ──
+// ── Create collection dialog ──
 const showCreate = ref(false)
 const newName = ref('')
 const newDescription = ref('')
@@ -24,10 +24,10 @@ const creating = ref(false)
 const NAME_RE = /^[a-z0-9][a-z0-9_-]*$/
 
 function validateName(v: string) {
-  if (!v) return 'El nombre es obligatorio.'
-  if (v.length < 2) return 'Mínimo 2 caracteres.'
-  if (v.length > 64) return 'Máximo 64 caracteres.'
-  if (!NAME_RE.test(v)) return 'Solo minúsculas, números, _ y -'
+  if (!v) return 'Name is required.'
+  if (v.length < 2) return 'Minimum 2 characters.'
+  if (v.length > 64) return 'Maximum 64 characters.'
+  if (!NAME_RE.test(v)) return 'Lowercase letters, numbers, _ and - only'
   return ''
 }
 
@@ -44,34 +44,34 @@ async function submitCreate() {
   creating.value = true
   try {
     await store.createCollection(newName.value.trim(), newDescription.value.trim())
-    toast.add({ severity: 'success', summary: 'Colección creada', detail: `'${newName.value}' lista para usar.`, life: 4000 })
+    toast.add({ severity: 'success', summary: 'Collection created', detail: `'${newName.value}' ready to use.`, life: 4000 })
     showCreate.value = false
   } catch (e: any) {
-    toast.add({ severity: 'error', summary: 'Error', detail: store.error ?? 'Error al crear', life: 5000 })
+    toast.add({ severity: 'error', summary: 'Error', detail: store.error ?? 'Failed to create', life: 5000 })
   } finally {
     creating.value = false
   }
 }
 
-// ── Eliminar colección ──
+// ── Delete collection ──
 function confirmDelete(name: string, isDefault: boolean) {
   if (isDefault) {
-    toast.add({ severity: 'warn', summary: 'Atención', detail: 'No se puede eliminar la colección por defecto.', life: 4000 })
+    toast.add({ severity: 'warn', summary: 'Warning', detail: 'The default collection cannot be deleted.', life: 4000 })
     return
   }
   confirm.require({
-    message: `¿Eliminar la colección '${name}'? Se borrarán todos sus documentos y vectores. Esta acción no se puede deshacer.`,
-    header: 'Eliminar colección',
+    message: `Delete collection '${name}'? All its documents and vectors will be removed. This action cannot be undone.`,
+    header: 'Delete collection',
     icon: 'pi pi-exclamation-triangle',
-    rejectLabel: 'Cancelar',
-    acceptLabel: 'Eliminar',
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
     acceptClass: 'p-button-danger',
     accept: async () => {
       try {
         await store.deleteCollection(name)
-        toast.add({ severity: 'warn', summary: 'Eliminada', detail: `Colección '${name}' eliminada.`, life: 4000 })
+        toast.add({ severity: 'warn', summary: 'Deleted', detail: `Collection '${name}' deleted.`, life: 4000 })
       } catch {
-        toast.add({ severity: 'error', summary: 'Error', detail: store.error ?? 'Error al eliminar', life: 5000 })
+        toast.add({ severity: 'error', summary: 'Error', detail: store.error ?? 'Failed to delete', life: 5000 })
       }
     },
   })
@@ -84,27 +84,27 @@ onMounted(() => store.fetchCollections())
   <div class="flex flex-col gap-3.5">
     <!-- Header -->
     <div class="flex items-center justify-between">
-      <span class="text-[0.7rem] font-semibold text-cape-cod-500 uppercase tracking-widest">Colecciones</span>
+      <span class="text-[0.7rem] font-semibold text-cape-cod-500 uppercase tracking-widest">Collections</span>
       <Button
         icon="pi pi-plus"
         size="small"
         text
         rounded
-        v-tooltip.left="'Nueva colección'"
+        v-tooltip.left="'New collection'"
         @click="openCreate"
         class="!text-cape-cod-400 hover:!bg-white/10"
       />
     </div>
 
-    <!-- Selector de colección activa -->
+    <!-- Active collection selector -->
     <div>
-      <label class="block text-xs text-cape-cod-400 mb-1.5 font-medium">Colección activa</label>
+      <label class="block text-xs text-cape-cod-400 mb-1.5 font-medium">Active collection</label>
       <Select
         :options="store.collections"
         optionLabel="name"
         optionValue="name"
         v-model="store.activeCollection"
-        placeholder="Seleccionar colección…"
+        placeholder="Select collection…"
         class="w-full !bg-white/5 !border-white/10 hover:!border-cape-cod-500/50"
         :loading="store.loading"
       >
@@ -125,12 +125,12 @@ onMounted(() => store.fetchCollections())
             <i class="pi pi-database mr-1.5 opacity-60 text-cape-cod-400" />
             {{ value }}
           </span>
-          <span v-else class="text-cape-cod-500">Seleccionar…</span>
+          <span v-else class="text-cape-cod-500">Select…</span>
         </template>
       </Select>
     </div>
 
-    <!-- Lista de colecciones -->
+    <!-- Collections list -->
     <div class="flex flex-col gap-1.5 max-h-60 overflow-y-auto pr-0.5" v-if="store.collections.length">
       <div
         v-for="col in store.collections"
@@ -147,10 +147,10 @@ onMounted(() => store.fetchCollections())
           </div>
           <div class="text-[0.7rem] text-cape-cod-500 overflow-hidden text-ellipsis whitespace-nowrap" v-if="col.description">{{ col.description }}</div>
           <div class="flex gap-2 mt-0.5">
-            <span class="text-[0.68rem] text-cape-cod-400 flex items-center gap-1" v-tooltip.bottom="'Documentos'">
+            <span class="text-[0.68rem] text-cape-cod-400 flex items-center gap-1" v-tooltip.bottom="'Documents'">
               <i class="pi pi-file-o text-[0.6rem]" /> {{ col.doc_count }}
             </span>
-            <span class="text-[0.68rem] text-cape-cod-300 flex items-center gap-1" v-tooltip.bottom="'Vectores indexados'">
+            <span class="text-[0.68rem] text-cape-cod-300 flex items-center gap-1" v-tooltip.bottom="'Indexed vectors'">
               <i class="pi pi-server text-[0.6rem]" /> {{ col.vector_count.toLocaleString() }}
             </span>
           </div>
@@ -161,7 +161,7 @@ onMounted(() => store.fetchCollections())
           rounded
           severity="danger"
           size="small"
-          v-tooltip.left="col.is_default ? 'No se puede eliminar la colección default' : 'Eliminar colección'"
+          v-tooltip.left="col.is_default ? 'The default collection cannot be deleted' : 'Delete collection'"
           :disabled="col.is_default"
           @click.stop="confirmDelete(col.name, col.is_default)"
           class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
@@ -171,12 +171,12 @@ onMounted(() => store.fetchCollections())
 
     <div v-else-if="!store.loading" class="flex flex-col items-center gap-1.5 p-4 text-cape-cod-500 text-sm">
       <i class="pi pi-inbox text-2xl opacity-40" />
-      <span>Sin colecciones. Crea una.</span>
+      <span>No collections. Create one.</span>
     </div>
 
-    <!-- Botón refresh -->
+    <!-- Refresh button -->
     <Button
-      label="Actualizar"
+      label="Refresh"
       icon="pi pi-refresh"
       text
       size="small"
@@ -186,10 +186,10 @@ onMounted(() => store.fetchCollections())
     />
   </div>
 
-  <!-- Diálogo crear colección -->
+  <!-- Create collection dialog -->
   <Dialog
     v-model:visible="showCreate"
-    header="Nueva colección"
+    header="New collection"
     modal
     :style="{ width: '28rem' }"
     :closable="!creating"
@@ -197,7 +197,7 @@ onMounted(() => store.fetchCollections())
   >
     <div class="flex flex-col gap-5 py-2">
       <div class="flex flex-col gap-1.5">
-        <label class="text-[0.8125rem] font-medium text-cape-cod-400">Nombre <span class="text-red-400 ml-0.5">*</span></label>
+        <label class="text-[0.8125rem] font-medium text-cape-cod-400">Name <span class="text-red-400 ml-0.5">*</span></label>
         <InputText
           v-model="newName"
           placeholder="ej: medicina_2024"
@@ -208,14 +208,14 @@ onMounted(() => store.fetchCollections())
           autofocus
         />
         <small v-if="nameError" class="text-[0.7rem] text-red-400">{{ nameError }}</small>
-        <small v-else class="text-[0.7rem] text-cape-cod-500">Solo minúsculas, números, _ y -</small>
+        <small v-else class="text-[0.7rem] text-cape-cod-500">Lowercase letters, numbers, _ and - only</small>
       </div>
 
       <div class="flex flex-col gap-1.5">
-        <label class="text-[0.8125rem] font-medium text-cape-cod-400">Descripción <span class="text-[0.7rem] text-cape-cod-500 font-normal ml-1">(opcional)</span></label>
+        <label class="text-[0.8125rem] font-medium text-cape-cod-400">Description <span class="text-[0.7rem] text-cape-cod-500 font-normal ml-1">(optional)</span></label>
         <Textarea
           v-model="newDescription"
-          placeholder="Describe el contenido de esta base de conocimiento…"
+          placeholder="Describe the content of this knowledge base…"
           rows="3"
           class="w-full !bg-white/5 !border-white/10 resize-none"
         />
@@ -223,8 +223,8 @@ onMounted(() => store.fetchCollections())
     </div>
 
     <template #footer>
-      <Button label="Cancelar" text severity="secondary" @click="showCreate = false" :disabled="creating" class="hover:bg-white/10" />
-      <Button label="Crear colección" icon="pi pi-plus" :loading="creating" @click="submitCreate" class="bg-gradient-to-br from-cape-cod-600 to-cape-cod-800 border-none" />
+      <Button label="Cancel" text severity="secondary" @click="showCreate = false" :disabled="creating" class="hover:bg-white/10" />
+      <Button label="Create collection" icon="pi pi-plus" :loading="creating" @click="submitCreate" class="bg-gradient-to-br from-cape-cod-600 to-cape-cod-800 border-none" />
     </template>
   </Dialog>
 </template>

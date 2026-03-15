@@ -40,22 +40,22 @@ from rag.models import (
 INDEX = None
 MAX_UPLOAD_MB = settings.max_upload_mb
 
-# Trabajos de evaluación en memoria — {eval_id: dict}
+# In-memory evaluation jobs — {eval_id: dict}
 EVAL_JOBS: dict[str, dict] = {}
 
-# Cache de índices por colección — máx 50 entradas, TTL 30 min
+# Index cache per collection — max 50 entries, TTL 30 min
 INDEX_CACHE: TTLCache = TTLCache(maxsize=50, ttl=1800)
 
-# Estado de ingestión por colección
+# Ingestion status per collection
 INGEST_STATUS_BY_COLLECTION: dict[str, dict] = {}
 
-# ContextVar para propagar request_id a través de cadenas async
+# ContextVar to propagate request_id across async chains
 _request_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
 
 def _default_ingest_status(collection: str) -> dict:
     return {
         "status": "idle",
-        "message": "Sin ingestión previa.",
+        "message": "No previous ingestion.",
         "started_at": None,
         "finished_at": None,
         "collection": collection,
@@ -70,12 +70,12 @@ limiter = Limiter(key_func=get_remote_address)
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 def verify_api_key(credentials: Optional[HTTPAuthorizationCredentials] = Security(_bearer_scheme)):
-    """Valida Bearer token si API_KEY está configurada en el entorno."""
+    """Validates Bearer token if API_KEY is configured in the environment."""
     api_key = (settings.api_key or "").strip()
     if not api_key:
-        return  # Auth desactivada si no hay API_KEY configurada
+        return  # Auth disabled if no API_KEY is configured
     if not credentials or credentials.credentials != api_key:
-        raise HTTPException(status_code=401, detail="API Key inválida o ausente.")
+        raise HTTPException(status_code=401, detail="Invalid or missing API Key.")
 
 
 # ── File validation ──────────────────────────────────────────
@@ -83,12 +83,12 @@ ALLOWED_BINARY_MIMES = {"application/pdf", "image/png", "image/jpeg"}
 ALLOWED_TEXT_EXTS = {".txt", ".md"}
 
 def validate_upload(content: bytes, filename: str) -> None:
-    """Valida tamaño real y tipo de archivo por magic bytes (no solo extensión)."""
+    """Validates actual file size and type via magic bytes (not just extension)."""
     size_mb = len(content) / (1024 * 1024)
     if size_mb > MAX_UPLOAD_MB:
         raise HTTPException(
             status_code=400,
-            detail=f"Archivo demasiado grande: {size_mb:.1f} MB. Máximo: {MAX_UPLOAD_MB} MB."
+            detail=f"File too large: {size_mb:.1f} MB. Maximum: {MAX_UPLOAD_MB} MB."
         )
 
     ext = Path(filename).suffix.lower()
@@ -99,18 +99,18 @@ def validate_upload(content: bytes, filename: str) -> None:
         except UnicodeDecodeError:
             raise HTTPException(
                 status_code=400,
-                detail=f"'{filename}' no es un archivo de texto UTF-8 válido."
+                detail=f"'{filename}' is not a valid UTF-8 text file."
             )
         return
 
     kind = filetype.guess(content)
     if kind is None or kind.mime not in ALLOWED_BINARY_MIMES:
-        detected = kind.mime if kind else "desconocido"
+        detected = kind.mime if kind else "unknown"
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Tipo de archivo no permitido: '{detected}'. "
-                "Permitidos: PDF, PNG, JPG, TXT, MD."
+                f"File type not allowed: '{detected}'. "
+                "Allowed: PDF, PNG, JPG, TXT, MD."
             ),
         )
 
@@ -119,27 +119,27 @@ def validate_upload(content: bytes, filename: str) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global INDEX
-    # settings.google_api_key ya fue validado por pydantic-settings al arrancar
+    # settings.google_api_key was already validated by pydantic-settings on startup
     try:
         from qdrant_client import QdrantClient
         qc = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
         existing = {c.name for c in qc.get_collections().collections}
         if settings.collection_name in existing:
-            logger.info("Cargando index existente desde Qdrant...", collection=settings.collection_name)
+            logger.info("Loading existing index from Qdrant...", collection=settings.collection_name)
             INDEX = load_existing_index(settings.collection_name)
             INDEX_CACHE[settings.collection_name] = INDEX
-            logger.info("Index cargado OK", collection=settings.collection_name)
+            logger.info("Index loaded OK", collection=settings.collection_name)
         else:
-            logger.info("No hay index previo. Sube documentos y llama /ingest.")
+            logger.info("No previous index found. Upload documents and call /ingest.")
     except Exception as e:
-        logger.warning("No se pudo cargar index previo", error=str(e))
+        logger.warning("Could not load previous index", error=str(e))
     yield
 
 
 # ── App ───────────────────────────────────────────────────────
 app = FastAPI(
     title="RAG Multimodal",
-    description="API RAG Multimodal con LlamaIndex + Gemini + Qdrant",
+    description="Multimodal RAG API with LlamaIndex + Gemini + Qdrant",
     version="1.1.0",
     lifespan=lifespan,
 )
@@ -150,9 +150,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # ── Global exception handler ─────────────────────────────────
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Captura errores no controlados y devuelve JSON estructurado con error_code."""
+    """Catches unhandled errors and returns structured JSON with error_code."""
     from rag.query import _classify_error
-    # Si es un RuntimeError lanzado por query_rag con JSON interno, lo parseamos
+    # If it's a RuntimeError raised by query_rag with an internal JSON payload, parse it
     if isinstance(exc, RuntimeError):
         try:
             payload = json.loads(str(exc))
@@ -160,11 +160,11 @@ async def global_exception_handler(request: Request, exc: Exception):
                 return JSONResponse(status_code=500, content=payload)
         except (json.JSONDecodeError, TypeError):
             pass
-    # Para HTTPException dejamos que FastAPI las maneje normalmente
+    # For HTTPException let FastAPI handle them normally
     if isinstance(exc, HTTPException):
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     error_code, user_msg, suggestion = _classify_error(exc)
-    logger.error("Excepción no controlada", error_code=error_code, path=str(request.url), error=str(exc))
+    logger.error("Unhandled exception", error_code=error_code, path=str(request.url), error=str(exc))
     return JSONResponse(
         status_code=500,
         content={"detail": user_msg, "error_code": error_code, "suggestion": suggestion},
@@ -181,7 +181,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
-    """Genera un UUID4 por request, lo propaga vía ContextVar y lo expone en la respuesta."""
+    """Generates a UUID4 per request, propagates it via ContextVar and exposes it in the response."""
     request_id = str(uuid.uuid4())
     _request_id_ctx.set(request_id)
     request.state.request_id = request_id
@@ -203,17 +203,17 @@ def health():
 async def upload_document(
     request: Request,
     file: UploadFile = File(...),
-    collection: str = Query(default=None, description="Nombre de la colección destino."),
+    collection: str = Query(default=None, description="Target collection name."),
     _: None = Security(verify_api_key),
 ):
-    """Sube un archivo al directorio de datos de la colección indicada."""
+    """Uploads a file to the data directory of the specified collection."""
     col = collection or settings.collection_name
     allowed_exts = {".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md"}
     ext = Path(file.filename).suffix.lower()
     if ext not in allowed_exts:
         raise HTTPException(
             status_code=400,
-            detail=f"Extensión no permitida: '{ext}'. Permitidas: {sorted(allowed_exts)}"
+            detail=f"Extension not allowed: '{ext}'. Allowed: {sorted(allowed_exts)}"
         )
 
     content = await file.read()
@@ -223,12 +223,12 @@ async def upload_document(
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / file.filename).write_bytes(content)
 
-    return {"message": f"Archivo '{file.filename}' subido a colección '{col}'. Llama /ingest para procesar."}
+    return {"message": f"File '{file.filename}' uploaded to collection '{col}'. Call /ingest to process."}
 
 
 @app.get("/documents")
 def list_documents(
-    collection: str = Query(default=None, description="Nombre de la colección."),
+    collection: str = Query(default=None, description="Collection name."),
 ):
     col = collection or settings.collection_name
     data_dir = get_collection_data_dir(col)
@@ -247,17 +247,17 @@ async def ingest(
     request: Request,
     payload: IngestRequest,
     background_tasks: BackgroundTasks,
-    collection: str = Query(default=None, description="Colección a ingestar."),
+    collection: str = Query(default=None, description="Collection to ingest."),
     _: None = Security(verify_api_key),
 ):
-    """Dispara la ingestión en background para la colección indicada."""
+    """Triggers ingestion in the background for the specified collection."""
     col = collection or settings.collection_name
     status = INGEST_STATUS_BY_COLLECTION.get(col, _default_ingest_status(col))
 
     if status["status"] == "running":
         raise HTTPException(
             status_code=409,
-            detail=f"Ya hay una ingestión en curso para '{col}'. Espera a que termine."
+            detail=f"Ingestion already in progress for '{col}'. Wait for it to finish."
         )
 
     _data_dir = get_collection_data_dir(col)
@@ -268,7 +268,7 @@ async def ingest(
     ) if _data_dir.exists() else 0
     INGEST_STATUS_BY_COLLECTION[col] = {
         "status": "running",
-        "message": "Procesando documentos...",
+        "message": "Processing documents...",
         "started_at": datetime.now(timezone.utc).isoformat(),
         "finished_at": None,
         "collection": col,
@@ -285,48 +285,48 @@ async def ingest(
                 INDEX = idx
             INGEST_STATUS_BY_COLLECTION[collection_name].update({
                 "status": "done",
-                "message": "Ingestión completada exitosamente.",
+                "message": "Ingestion completed successfully.",
                 "finished_at": datetime.now(timezone.utc).isoformat(),
                 "processed_docs": INGEST_STATUS_BY_COLLECTION[collection_name].get("total_docs", 0),
             })
-            logger.info("Ingestión completada", collection=collection_name)
+            logger.info("Ingestion completed", collection=collection_name)
         except Exception as e:
             INGEST_STATUS_BY_COLLECTION[collection_name].update({
                 "status": "failed",
                 "message": str(e),
                 "finished_at": datetime.now(timezone.utc).isoformat(),
             })
-            logger.error("Error en ingestión", error=str(e), collection=collection_name, exc_info=True)
+            logger.error("Ingestion error", error=str(e), collection=collection_name, exc_info=True)
 
     background_tasks.add_task(_run_ingest, col)
-    return {"message": f"Ingestión iniciada para '{col}'. Consulta GET /ingest/status."}
+    return {"message": f"Ingestion started for '{col}'. Check GET /ingest/status."}
 
 
 @app.get("/ingest/status", response_model=IngestStatus)
 def ingest_status(
-    collection: str = Query(default=None, description="Colección a consultar."),
+    collection: str = Query(default=None, description="Collection to query."),
 ):
-    """Estado actual de la ingestión para la colección indicada."""
+    """Current ingestion status for the specified collection."""
     col = collection or settings.collection_name
     return INGEST_STATUS_BY_COLLECTION.get(col, _default_ingest_status(col))
 
 
 def _resolve_index(collection: str | None = None):
-    """Retorna el índice para una colección. Usa cache; carga perezosamente si es nueva."""
+    """Returns the index for a collection. Uses cache; lazily loads if new."""
     col = collection or settings.collection_name
     if col in INDEX_CACHE:
         return INDEX_CACHE[col]
     if col == settings.collection_name and INDEX is not None:
         return INDEX
-    # Carga perezosa para colecciones adicionales
+    # Lazy load for additional collections
     try:
         idx = load_index_for_collection(col)
         if idx is None:
-            return None  # colección no existe en Qdrant — no cachear
+            return None  # collection does not exist in Qdrant — do not cache
         INDEX_CACHE[col] = idx
         return idx
     except Exception as e:
-        logger.error("No se pudo cargar índice", collection=col, error=str(e))
+        logger.error("Could not load index", collection=col, error=str(e))
         return None
 
 
@@ -337,12 +337,12 @@ async def query(
     payload: QueryRequest,
     collection: str | None = Query(default=None),
 ):
-    """Consulta RAG con la pregunta del usuario. `collection` es opcional."""
+    """RAG query with the user's question. `collection` is optional."""
     idx = _resolve_index(collection)
     if idx is None:
         raise HTTPException(
             status_code=503,
-            detail="Colección sin índice. Sube documentos y llama /ingest primero.",
+            detail="Collection has no index. Upload documents and call /ingest first.",
         )
     try:
         result = query_rag(
@@ -353,7 +353,7 @@ async def query(
             use_hyde=payload.use_hyde,
         )
     except RuntimeError as exc:
-        # query_rag lanza RuntimeError con JSON interno para errores clasificados
+        # query_rag raises RuntimeError with internal JSON for classified errors
         try:
             payload_err = json.loads(str(exc))
             return JSONResponse(status_code=502, content=payload_err)
@@ -364,7 +364,7 @@ async def query(
 
 @app.get("/collections", response_model=CollectionsResponse)
 def list_collections():
-    """Lista todas las colecciones disponibles con estadísticas."""
+    """Lists all available collections with statistics."""
     cols = list_all_collections()
     return CollectionsResponse(
         collections=[CollectionInfo(**c) for c in cols],
@@ -377,15 +377,15 @@ def create_new_collection(
     payload: CollectionCreateRequest,
     _: None = Security(verify_api_key),
 ):
-    """Crea una nueva colección vacía en Qdrant con su directorio de datos."""
+    """Creates a new empty collection in Qdrant with its data directory."""
     try:
         create_collection(payload.name, payload.description)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
-        logger.error("Error al crear colección", name=payload.name, error=str(e))
+        logger.error("Error creating collection", name=payload.name, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
-    return {"message": f"Colección '{payload.name}' creada exitosamente."}
+    return {"message": f"Collection '{payload.name}' created successfully."}
 
 
 @app.delete("/collections/{name}")
@@ -393,29 +393,29 @@ def delete_named_collection(
     name: str,
     _: None = Security(verify_api_key),
 ):
-    """Elimina una colección específica con todos sus datos y vectores."""
-    # Validar nombre para prevenir path traversal
+    """Deletes a specific collection with all its data and vectors."""
+    # Validate name to prevent path traversal
     if not re.match(r'^[a-z0-9][a-z0-9_\-]*$', name):
-        raise HTTPException(status_code=400, detail="Nombre de colección inválido.")
+        raise HTTPException(status_code=400, detail="Invalid collection name.")
     try:
         delete_collection(name)
     except Exception as e:
-        logger.error("Error al eliminar colección", name=name, error=str(e))
+        logger.error("Error deleting collection", name=name, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-    # Limpiar cache en memoria
+    # Clear in-memory cache
     INDEX_CACHE.pop(name, None)
     INGEST_STATUS_BY_COLLECTION.pop(name, None)
     global INDEX
     if name == settings.collection_name:
         INDEX = None
 
-    return {"message": f"Colección '{name}' eliminada correctamente."}
+    return {"message": f"Collection '{name}' deleted successfully."}
 
 
 @app.delete("/collection")
 def reset_collection(_: None = Security(verify_api_key)):
-    """Elimina y recrea la colección por defecto (reset total — compatibilidad)."""
+    """Deletes and recreates the default collection (full reset — compatibility)."""
     return delete_named_collection(settings.collection_name, _)
 
 
@@ -423,25 +423,25 @@ def reset_collection(_: None = Security(verify_api_key)):
 @app.delete("/documents/{filename}")
 async def delete_document(
     filename: str,
-    collection: str = Query(default=None, description="Colección del documento."),
+    collection: str = Query(default=None, description="Document collection."),
     _: None = Security(verify_api_key),
 ):
-    """Elimina un documento individual de la colección y sus vectores de Qdrant."""
+    """Deletes an individual document from the collection and its vectors from Qdrant."""
     col = collection or settings.collection_name
     data_dir = get_collection_data_dir(col)
 
-    # Security: pathlib garantiza que el archivo esté dentro de data_dir (anti path traversal)
+    # Security: pathlib ensures the file is inside data_dir (anti path traversal)
     try:
         file_path = (data_dir / filename).resolve()
         file_path.relative_to(data_dir.resolve())
     except (ValueError, OSError):
-        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+        raise HTTPException(status_code=400, detail="Invalid filename.")
     deleted_file = False
     if file_path.exists() and file_path.is_file():
         file_path.unlink()
         deleted_file = True
 
-    # Eliminar vectores de Qdrant filtrando por metadata.file_name
+    # Delete vectors from Qdrant filtering by metadata.file_name
     try:
         from rag.ingest import get_qdrant_client
         from qdrant_client.models import FilterSelector, Filter, FieldCondition, MatchValue
@@ -455,11 +455,11 @@ async def delete_document(
             ),
         )
     except Exception as e:
-        logger.warning("Error al eliminar vectores de Qdrant", filename=filename, collection=col, error=str(e))
+        logger.warning("Error deleting vectors from Qdrant", filename=filename, collection=col, error=str(e))
 
     if not deleted_file:
-        raise HTTPException(status_code=404, detail=f"Documento '{filename}' no encontrado.")
-    return {"message": f"Documento '{filename}' eliminado de '{col}'."}
+        raise HTTPException(status_code=404, detail=f"Document '{filename}' not found.")
+    return {"message": f"Document '{filename}' deleted from '{col}'."}
 
 
 # ── Chat multi-turn ───────────────────────────────────────────
@@ -470,12 +470,12 @@ async def chat_stream(
     payload: ChatRequest,
     collection: str | None = Query(default=None),
 ):
-    """Chat multi-turn con streaming SSE. Envía tokens incrementalmente."""
+    """Multi-turn chat with SSE streaming. Sends tokens incrementally."""
     idx = _resolve_index(collection)
     if idx is None:
         raise HTTPException(
             status_code=503,
-            detail="Index no disponible. Sube documentos y llama /ingest."
+            detail="Index not available. Upload documents and call /ingest."
         )
     return EventSourceResponse(
         chat_rag_stream(
@@ -497,12 +497,12 @@ async def chat(
     payload: ChatRequest,
     collection: str | None = Query(default=None),
 ):
-    """Chat multi-turn sin streaming (fallback)."""
+    """Multi-turn chat without streaming (fallback)."""
     idx = _resolve_index(collection)
     if idx is None:
         raise HTTPException(
             status_code=503,
-            detail="Index no disponible. Sube documentos y llama /ingest."
+            detail="Index not available. Upload documents and call /ingest."
         )
     result = chat_rag(
         idx,
@@ -517,9 +517,9 @@ async def chat(
 
 @app.delete("/chat/{session_id}")
 def clear_session(session_id: str):
-    """Elimina el historial de chat de una sesión."""
+    """Deletes the chat history for a session."""
     cleared = clear_chat_session(session_id)
-    return {"message": "Sesión eliminada." if cleared else "Sesión no encontrada.", "cleared": cleared}
+    return {"message": "Session deleted." if cleared else "Session not found.", "cleared": cleared}
 
 
 # ── Config endpoints ─────────────────────────────────────────
@@ -536,7 +536,7 @@ class ConfigUpdate(BaseModel):
 
 
 def reinitialize_llm():
-    """Reconfigura los modelos LLM y embedding en LlamaIndex Settings."""
+    """Reconfigures the LLM and embedding models in LlamaIndex Settings."""
     from llama_index.core import Settings as LlamaSettings
     from llama_index.llms.google_genai import GoogleGenAI
     from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
@@ -548,12 +548,12 @@ def reinitialize_llm():
         model_name=settings.embedding_model,
         api_key=settings.google_api_key,
     )
-    logger.info("LLM reconfigurado", llm_model=settings.llm_model, embedding_model=settings.embedding_model)
+    logger.info("LLM reconfigured", llm_model=settings.llm_model, embedding_model=settings.embedding_model)
 
 
 @app.get("/config")
 def get_config():
-    """Retorna la configuración actual (sin secretos)."""
+    """Returns the current configuration (without secrets)."""
     return {
         "llm_model": settings.llm_model,
         "embedding_model": settings.embedding_model,
@@ -569,7 +569,7 @@ def get_config():
 
 @app.put("/config")
 async def update_config(body: ConfigUpdate, _: None = Security(verify_api_key)):
-    """Actualiza la configuración en memoria (sin reiniciar)."""
+    """Updates configuration in memory (without restarting)."""
     changed_llm = False
     changed_hyde = False
     for field, value in body.model_dump(exclude_none=True).items():
@@ -581,26 +581,26 @@ async def update_config(body: ConfigUpdate, _: None = Security(verify_api_key)):
     if changed_llm:
         reinitialize_llm()
     if changed_hyde:
-        # Invalidar cache de chat engines — el nuevo estado de HyDE debe aplicar
+        # Invalidate chat engines cache — the new HyDE state must apply
         from rag.query import _CHAT_ENGINES
         _CHAT_ENGINES.clear()
-        logger.info("Cache de chat engines invalidado por cambio en enable_hyde", enable_hyde=settings.enable_hyde)
+        logger.info("Chat engines cache invalidated due to enable_hyde change", enable_hyde=settings.enable_hyde)
     return {"ok": True}
 
 
-# ── Evaluación RAG ───────────────────────────────────────────
+# ── RAG Evaluation ───────────────────────────────────────────
 
 @app.post("/eval", status_code=202)
 async def start_evaluation(
     payload: EvalRequest,
     background_tasks: BackgroundTasks,
 ):
-    """Inicia una evaluación RAG en background. Retorna eval_id para consultar el estado."""
+    """Starts a RAG evaluation in the background. Returns eval_id to check status."""
     idx = _resolve_index(payload.collection)
     if idx is None:
         raise HTTPException(
             status_code=503,
-            detail="Index no disponible. Sube documentos y llama /ingest primero.",
+            detail="Index not available. Upload documents and call /ingest first.",
         )
 
     eval_id = str(uuid.uuid4())
@@ -625,7 +625,7 @@ async def start_evaluation(
                 r = evaluate_question(index, q.question, q.ground_truth, top_k)
                 results.append(r)
             except Exception as exc:
-                logger.error("Error evaluando pregunta", question=q.question[:80], error=str(exc))
+                logger.error("Error evaluating question", question=q.question[:80], error=str(exc))
                 results.append({
                     "question": q.question,
                     "answer": f"Error: {str(exc)[:200]}",
@@ -648,18 +648,18 @@ async def start_evaluation(
             "metrics": metrics,
             "results": results,
         })
-        logger.info("Evaluación completada", eval_id=eval_id, n_questions=len(questions))
+        logger.info("Evaluation completed", eval_id=eval_id, n_questions=len(questions))
 
     background_tasks.add_task(_run_eval, eval_id, payload.questions, payload.top_k, idx)
-    return {"eval_id": eval_id, "message": f"Evaluación iniciada con {len(payload.questions)} pregunta(s)."}
+    return {"eval_id": eval_id, "message": f"Evaluation started with {len(payload.questions)} question(s)."}
 
 
 @app.get("/eval/{eval_id}", response_model=EvalStatus)
 def get_eval_status(eval_id: str):
-    """Retorna el estado y resultados de una evaluación por su ID."""
+    """Returns the status and results of an evaluation by its ID."""
     job = EVAL_JOBS.get(eval_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="Evaluación no encontrada.")
+        raise HTTPException(status_code=404, detail="Evaluation not found.")
     return job
 
 
@@ -669,7 +669,7 @@ FEEDBACK_FILE = Path("./feedback.jsonl")
 
 @app.post("/feedback")
 async def submit_feedback(payload: FeedbackRequest):
-    """Registra feedback de calidad (thumbs up/down) en un archivo JSONL."""
+    """Records quality feedback (thumbs up/down) to a JSONL file."""
     entry = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "query_id": payload.query_id,
@@ -680,4 +680,4 @@ async def submit_feedback(payload: FeedbackRequest):
     }
     with open(FEEDBACK_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    return {"message": "Feedback registrado. ¡Gracias!"}
+    return {"message": "Feedback recorded. Thank you!"}

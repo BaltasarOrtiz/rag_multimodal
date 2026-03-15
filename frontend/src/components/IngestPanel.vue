@@ -23,7 +23,7 @@ async function handleIngest(force = false) {
   await ingest(force)
   startPolling()
   if (message.value) {
-    toast.add({ severity: 'info', summary: 'Ingestión', detail: message.value, life: 5000 })
+    toast.add({ severity: 'info', summary: 'Ingestion', detail: message.value, life: 5000 })
     lastResult.value = { ok: true, text: message.value, time: new Date().toLocaleTimeString() }
     setTimeout(() => { refreshHealth(); collectionStore.fetchCollections() }, 2000)
   }
@@ -41,19 +41,19 @@ async function handleIngest(force = false) {
     </div>
 
     <p class="text-[0.8125rem] text-cape-cod-500 leading-relaxed">
-      Procesa los documentos subidos, genera summaries con Gemini y los embeddea en Qdrant.
+      Processes uploaded documents, generates summaries with Gemini and embeds them into Qdrant.
     </p>
 
     <div class="flex flex-col gap-2">
       <Button
-        label="Iniciar Ingestión"
+        label="Start Ingestion"
         icon="pi pi-play"
         :loading="loading"
         @click="handleIngest(false)"
         class="bg-gradient-to-br from-cape-cod-300 to-cape-cod-500 !border-none !font-semibold !text-cape-cod-950 hover:brightness-110"
       />
       <Button
-        label="Forzar re-ingestión"
+        label="Force re-ingestion"
         icon="pi pi-refresh"
         severity="warn"
         outlined
@@ -88,7 +88,7 @@ async function handleIngest(force = false) {
           :class="lastResult.ok ? 'pi pi-check-circle' : 'pi pi-times-circle'"
         />
         <div class="flex-1 min-w-0">
-          <p class="m-0 font-medium">{{ lastResult.ok ? 'Ingestión completada' : 'Ingestión fallida' }}</p>
+          <p class="m-0 font-medium">{{ lastResult.ok ? 'Ingestion completed' : 'Ingestion failed' }}</p>
           <p class="m-0 opacity-80 text-[0.7rem] mt-0.5 truncate">{{ lastResult.text }}</p>
         </div>
         <span class="text-[0.65rem] opacity-50 shrink-0 mt-[0.1rem]">{{ lastResult.time }}</span>

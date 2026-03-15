@@ -17,18 +17,18 @@ from qdrant_client.models import Distance, VectorParams
 from config import settings as app_settings
 from logger import logger
 
-# Directorio base para datos por colección: ./data/{collection_name}/
+# Base data directory per collection: ./data/{collection_name}/
 BASE_DATA_DIR = Path("./data")
-# Directorio base de storage LlamaIndex por colección: ./storage/{collection_name}/
+# Base LlamaIndex storage directory per collection: ./storage/{collection_name}/
 BASE_STORAGE_DIR = Path("./storage")
 
-# Metadata de colecciones creadas via API (descripción, etc.)
-# Se persiste en ./storage/.collections_meta.json
+# Metadata for collections created via API (description, etc.)
+# Persisted in ./storage/.collections_meta.json
 _COLLECTIONS_META_FILE = BASE_STORAGE_DIR / ".collections_meta.json"
 
 
 def _load_collections_meta() -> dict:
-    """Lee el archivo de metadata de colecciones."""
+    """Reads the collections metadata file."""
     if _COLLECTIONS_META_FILE.exists():
         import json
         try:
@@ -39,7 +39,7 @@ def _load_collections_meta() -> dict:
 
 
 def _save_collections_meta(meta: dict) -> None:
-    """Persiste metadata de colecciones."""
+    """Persists collections metadata."""
     import json
     BASE_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     _COLLECTIONS_META_FILE.write_text(
@@ -48,12 +48,12 @@ def _save_collections_meta(meta: dict) -> None:
 
 
 def get_collection_data_dir(collection_name: str) -> Path:
-    """Retorna el directorio de datos para una colección concreta."""
+    """Returns the data directory for a specific collection."""
     return BASE_DATA_DIR / collection_name
 
 
 def get_collection_storage_dir(collection_name: str) -> Path:
-    """Retorna el directorio de storage LlamaIndex para una colección."""
+    """Returns the LlamaIndex storage directory for a collection."""
     return BASE_STORAGE_DIR / collection_name
 
 
@@ -76,7 +76,7 @@ def _init_llama_settings() -> None:
             api_key=app_settings.google_api_key,
             max_tokens=4096,
         )
-        # Fallback: se usa solo si SemanticSplitter está desactivado
+        # Fallback: used only if SemanticSplitter is disabled
         Settings.chunk_size = 512
         Settings.chunk_overlap = 64
         _settings_initialized = True
@@ -95,14 +95,14 @@ def get_vector_store(
     allow_recreate: bool = False,
 ) -> QdrantVectorStore:
     """
-    Retorna QdrantVectorStore para la colección indicada.
+    Returns QdrantVectorStore for the indicated collection.
 
-    - ENABLE_HYBRID=true → habilita dense+sparse (BM25) con fastembed.
-      * allow_recreate=True: si la colección existe sin sparse, la elimina para
-        que LlamaIndex la recree con sparse al ingestar.
-      * allow_recreate=False (startup): si la colección existe sin sparse, usa
-        dense-only para no romper queries. Re-ingestar activa el híbrido.
-    - ENABLE_HYBRID=false → solo dense (comportamiento original).
+    - ENABLE_HYBRID=true → enables dense+sparse (BM25) with fastembed.
+      * allow_recreate=True: if the collection exists without sparse vectors, deletes it so
+        LlamaIndex recreates it with sparse on ingestion.
+      * allow_recreate=False (startup): if the collection exists without sparse vectors, uses
+        dense-only to avoid breaking queries. Re-ingesting activates hybrid mode.
+    - ENABLE_HYBRID=false → dense only (original behavior).
     """
     collection = collection_name or app_settings.collection_name
     if app_settings.enable_hybrid:
@@ -113,14 +113,14 @@ def get_vector_store(
             if not sparse_cfg:
                 if allow_recreate:
                     print(
-                        f"⚠️  Recreando colección '{collection}' para habilitar "
-                        "búsqueda híbrida (dense + sparse BM25)..."
+                        f"⚠️  Recreating collection '{collection}' to enable "
+                        "hybrid search (dense + sparse BM25)..."
                     )
                     client.delete_collection(collection)
                 else:
                     print(
-                        f"⚠️  '{collection}' no tiene sparse vectors — usando dense-only. "
-                        "Llama a /ingest para activar búsqueda híbrida."
+                        f"⚠️  '{collection}' has no sparse vectors — using dense-only. "
+                        "Call /ingest to activate hybrid search."
                     )
                     return QdrantVectorStore(client=client, collection_name=collection)
         return QdrantVectorStore(
@@ -144,28 +144,28 @@ def get_vector_store(
 
 def _build_node_parser():
     """
-    Construye el parser de nodos.
-    - ENABLE_SEMANTIC_CHUNKING=true  → SemanticSplitterNodeParser (semántico).
-    - ENABLE_SEMANTIC_CHUNKING=false → SentenceSplitter fijo (más rápido, default).
+    Builds the node parser.
+    - ENABLE_SEMANTIC_CHUNKING=true  → SemanticSplitterNodeParser (semantic).
+    - ENABLE_SEMANTIC_CHUNKING=false → Fixed SentenceSplitter (faster, default).
     """
     if app_settings.enable_semantic_chunking:
         try:
-            print("📐 Usando chunking semántico (SemanticSplitterNodeParser)...")
+            print("📐 Using semantic chunking (SemanticSplitterNodeParser)...")
             return SemanticSplitterNodeParser(
                 buffer_size=1,
                 breakpoint_percentile_threshold=95,
                 embed_model=Settings.embed_model,
             )
         except Exception as exc:
-            print(f"⚠️  SemanticSplitter no disponible ({exc}). Usando chunking fijo.")
+            print(f"⚠️  SemanticSplitter not available ({exc}). Using fixed chunking.")
     return SentenceSplitter(chunk_size=512, chunk_overlap=64)
 
 
 def _enrich_metadata(nodes, data_dir: Path):
     """
-    Añade metadata enriquecida a todos los nodos:
+    Adds enriched metadata to all nodes:
     file_type, ingested_at, file_size.
-    page_number ya lo inyecta LlamaIndex para PDFs en node.metadata['page_label'].
+    page_number is already injected by LlamaIndex for PDFs in node.metadata['page_label'].
     """
     ingested_at = datetime.now(timezone.utc).isoformat()
     for node in nodes:
@@ -184,10 +184,10 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 def _embed_images_natively(data_dir: Path) -> list:
     """
-    Genera ImageNodes con embeddings multimodal nativos para cada imagen.
-    Usa gemini-embedding-2-preview directamente con el contenido binario
-    en lugar de OCR o descripción de texto.
-    Retorna lista de ImageNodes listos para indexar junto a los text nodes.
+    Generates ImageNodes with native multimodal embeddings for each image.
+    Uses gemini-embedding-2-preview directly with binary content
+    instead of OCR or text description.
+    Returns a list of ImageNodes ready to index alongside text nodes.
     """
     image_nodes = []
     for img_path in data_dir.iterdir():
@@ -202,7 +202,7 @@ def _embed_images_natively(data_dir: Path) -> list:
             b64 = base64.b64encode(raw).decode("utf-8")
             data_uri = f"data:image/{mime};base64,{b64}"
 
-            # Generar embedding nativo via Settings.embed_model
+            # Generate native embedding via Settings.embed_model
             embedding = Settings.embed_model.get_text_embedding(data_uri)
 
             node = ImageNode(
@@ -220,7 +220,7 @@ def _embed_images_natively(data_dir: Path) -> list:
             print(f"\U0001f5bc\ufe0f  Imagen embedeada nativamente: {img_path.name}")
         except Exception as exc:
             logger.warning(
-                "No se pudo embeddear imagen nativamente",
+                "Could not embed image natively",
                 filename=img_path.name,
                 error=str(exc),
             )
@@ -230,9 +230,9 @@ def _embed_images_natively(data_dir: Path) -> list:
 
 def ingest_documents(collection_name: str | None = None) -> VectorStoreIndex:
     """
-    Carga, procesa y embeddea los documentos de una colección.
-    Los documentos se leen desde ./data/{collection_name}/.
-    Retorna el índice actualizado.
+    Loads, processes and embeds the documents of a collection.
+    Documents are read from ./data/{collection_name}/.
+    Returns the updated index.
     """
     col = collection_name or app_settings.collection_name
     data_dir = get_collection_data_dir(col)
@@ -255,10 +255,10 @@ def ingest_documents(collection_name: str | None = None) -> VectorStoreIndex:
     all_nodes = nodes + image_nodes
 
     if not all_nodes:
-        raise FileNotFoundError(f"No se encontraron documentos en {data_dir}")
+        raise FileNotFoundError(f"No documents found in {data_dir}")
 
-    mode = "semántico" if app_settings.enable_semantic_chunking else "fijo"
-    print(f"📄 [{col}] {len(nodes)} nodos de texto + {len(image_nodes)} imágenes = {len(all_nodes)} nodos totales (chunking {mode}).")
+    mode = "semantic" if app_settings.enable_semantic_chunking else "fixed"
+    print(f"📄 [{col}] {len(nodes)} text nodes + {len(image_nodes)} images = {len(all_nodes)} total nodes (chunking {mode}).")
 
     storage_ctx = StorageContext.from_defaults(vector_store=vector_store)
     index = VectorStoreIndex(all_nodes, storage_context=storage_ctx, show_progress=True)
@@ -271,39 +271,39 @@ def ingest_documents(collection_name: str | None = None) -> VectorStoreIndex:
 
 def load_existing_index(collection_name: str | None = None) -> VectorStoreIndex | None:
     """
-    Carga índice desde Qdrant para la colección indicada.
-    Retorna None si la colección no existe en Qdrant (evita índices 'fantasma').
+    Loads index from Qdrant for the indicated collection.
+    Returns None if the collection does not exist in Qdrant (avoids 'ghost' indexes).
     """
     col = collection_name or app_settings.collection_name
     _init_llama_settings()
     q_client = get_qdrant_client()
     existing = {c.name for c in q_client.get_collections().collections}
     if col not in existing:
-        print(f"⚠️  Colección '{col}' no existe en Qdrant — índice no cargado.")
+        print(f"⚠️  Collection '{col}' does not exist in Qdrant — index not loaded.")
         return None
     vector_store = get_vector_store(q_client, collection_name=col, allow_recreate=False)
     return VectorStoreIndex.from_vector_store(vector_store)
 
 
 def load_index_for_collection(collection_name: str) -> VectorStoreIndex | None:
-    """Alias para carga perezosa de colecciones adicionales."""
+    """Alias for lazy loading of additional collections."""
     return load_existing_index(collection_name)
 
 
 def create_collection(collection_name: str, description: str = "") -> None:
     """
-    Crea una nueva colección vacía en Qdrant y su directorio de datos.
-    Registra la descripción en el archivo de metadata.
-    Lanza ValueError si ya existe.
+    Creates a new empty collection in Qdrant and its data directory.
+    Registers the description in the metadata file.
+    Raises ValueError if it already exists.
     """
     q_client = get_qdrant_client()
     existing = [c.name for c in q_client.get_collections().collections]
     if collection_name in existing:
-        raise ValueError(f"La colección '{collection_name}' ya existe en Qdrant.")
+        raise ValueError(f"Collection '{collection_name}' already exists in Qdrant.")
 
     if app_settings.enable_hybrid:
-        # Con híbrido, QdrantVectorStore la creará la primera vez que se ingeste.
-        # Solo preparamos el directorio y la metadata.
+        # With hybrid, QdrantVectorStore will create it the first time documents are ingested.
+        # We only prepare the directory and metadata.
         pass
     else:
         q_client.create_collection(
@@ -314,10 +314,10 @@ def create_collection(collection_name: str, description: str = "") -> None:
             ),
         )
 
-    # Crear directorio de datos
+    # Create data directory
     get_collection_data_dir(collection_name).mkdir(parents=True, exist_ok=True)
 
-    # Guardar metadata
+    # Save metadata
     meta = _load_collections_meta()
     meta[collection_name] = {
         "description": description,
@@ -328,8 +328,8 @@ def create_collection(collection_name: str, description: str = "") -> None:
 
 def delete_collection(collection_name: str) -> None:
     """
-    Elimina la colección en Qdrant, su directorio de datos y su storage.
-    Lanza ValueError si intenta eliminar la colección por defecto cuando es la única.
+    Deletes the collection from Qdrant, its data directory and its storage.
+    Raises ValueError if attempting to delete the default collection when it is the only one.
     """
     import shutil
     q_client = get_qdrant_client()
@@ -345,7 +345,7 @@ def delete_collection(collection_name: str) -> None:
     if storage_dir.exists():
         shutil.rmtree(storage_dir)
 
-    # Limpiar metadata
+    # Clean up metadata
     meta = _load_collections_meta()
     meta.pop(collection_name, None)
     _save_collections_meta(meta)
@@ -353,7 +353,7 @@ def delete_collection(collection_name: str) -> None:
 
 def get_collection_stats(collection_name: str) -> dict:
     """
-    Retorna estadísticas de una colección: vector_count y doc_count (archivos en ./data/).
+    Returns statistics for a collection: vector_count and doc_count (files in ./data/).
     """
     q_client = get_qdrant_client()
     vector_count = 0
@@ -376,20 +376,20 @@ def get_collection_stats(collection_name: str) -> dict:
 
 def list_all_collections() -> list[dict]:
     """
-    Retorna lista de todas las colecciones con stats y metadata.
-    Incluye colecciones en Qdrant y las registradas localmente.
+    Returns a list of all collections with stats and metadata.
+    Includes collections in Qdrant and those registered locally.
     """
     q_client = get_qdrant_client()
     meta = _load_collections_meta()
 
     qdrant_names = {c.name for c in q_client.get_collections().collections}
-    # Colecciones locales (directorios de datos)
+    # Local collections (data directories)
     local_names = set()
     if BASE_DATA_DIR.exists():
         local_names = {d.name for d in BASE_DATA_DIR.iterdir() if d.is_dir()}
 
     all_names = qdrant_names | local_names | set(meta.keys())
-    # Aseguramos que la colección por defecto siempre aparezca
+    # Ensure the default collection always appears
     all_names.add(app_settings.collection_name)
 
     result = []

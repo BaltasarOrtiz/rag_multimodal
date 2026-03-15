@@ -1,200 +1,219 @@
 # RAG Multimodal
 
-## Visión General
+> **Local test project** — a complete RAG system built with AI assistance (Claude Code, Gemini, GitHub Copilot / Codex) as a learning experiment and technology exploration. Not intended for production use.
 
-Sistema **RAG (Retrieval-Augmented Generation) Multimodal** completo con arquitectura fullstack. Permite subir documentos (PDF, imágenes, texto/markdown), ingestarlos en una base vectorial y luego consultarlos mediante chat multi-turn con respuestas generadas por IA, con streaming en tiempo real.
-
-**Stack tecnológico:**
-- **Backend:** Python + FastAPI + LlamaIndex + Gemini 2.5 Flash (LLM) + Gemini Embedding 2 Preview + Qdrant (vector store)
-- **Frontend:** Vue 3 (Composition API) + TypeScript + PrimeVue 4 + Axios + Vite
-- **Infraestructura:** Docker Compose (3 servicios: `qdrant`, `api`, `frontend`)
-- **Búsqueda:** Híbrida dense+sparse (BM25 via fastembed) + reranking con cross-encoder local
+A **Multimodal RAG (Retrieval-Augmented Generation)** system with a containerized fullstack architecture. It allows uploading documents (PDF, images, text), ingesting them into a vector database, and querying them through a multi-turn chat with AI-generated responses and real-time streaming.
 
 ---
 
-## Estructura de Carpetas
+## Warning
 
-```
-rag_multimodal/
-├── .env                          # Variables de entorno (GOOGLE_API_KEY, etc.)
-├── docker-compose.yml            # Configuración de producción
-├── docker-compose.override.yml   # Configuración de desarrollo (hot-reload)
-├── qdrant_storage/               # Datos persistentes de Qdrant (colección facultad_rag)
-│
-├── backend/
-│   ├── main.py                   # App FastAPI: todos los endpoints REST
-│   ├── config.py                 # Settings centralizados (pydantic-settings)
-│   ├── logger.py                 # Logger estructurado JSON (loguru)
-│   ├── eval_pipeline.py          # Evaluación RAG con RAGAS (CLI)
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   ├── data/                     # Documentos subidos (montado como volumen)
-│   ├── storage/                  # Índice persistido de LlamaIndex (JSON)
-│   ├── rag/
-│   │   ├── __init__.py
-│   │   ├── ingest.py             # Pipeline de ingestión: carga → chunking → embed → Qdrant
-│   │   ├── query.py              # Query RAG single-turn + Chat multi-turn + SSE streaming
-│   │   └── models.py             # Schemas Pydantic para requests/responses
-│   └── tests/
-│       ├── conftest.py
-│       └── test_api.py           # Tests de integración con httpx + pytest-asyncio
-│
-└── frontend/
-    ├── package.json
-    ├── vite.config.ts
-    ├── nginx.conf                # Nginx: SPA fallback + proxy /api/ → backend:8000
-    ├── Dockerfile
-    └── src/
-        ├── main.ts               # Entry point: Vue app + PrimeVue + Router + Pinia
-        ├── App.vue               # Root: <Toast> + <RouterView>
-        ├── style.css             # Variables CSS globales (dark mode, glassmorphism)
-        ├── api/
-        │   └── ragApi.ts         # Cliente HTTP (axios): todas las llamadas a la API
-        ├── types/
-        │   └── rag.ts            # Tipos TypeScript (mirrors de los schemas Pydantic)
-        ├── composables/
-        │   └── useRag.ts         # Composables Vue: useHealth, useDocuments, useIngest,
-        │                         #   useQuery, useIngestStatus, useReset, useChat
-        ├── components/
-        │   ├── AppHeader.vue     # Header sticky: logo + badge de estado API/Index
-        │   ├── DocumentUpload.vue # Upload drag&drop + lista de documentos + eliminar
-        │   ├── IngestPanel.vue   # Botones de ingestión + polling de estado
-        │   ├── QueryPanel.vue    # Chat multi-turn con streaming SSE + feedback
-        │   └── SourcesDisplay.vue # Visualización de chunks fuente con score
-        ├── views/
-        │   └── HomeView.vue      # Layout: sidebar (upload+ingest+danger zone) | chat
-        ├── router/
-        │   └── index.ts          # Vue Router: ruta "/" → HomeView
-        └── tests/
-            └── useRag.test.ts    # Tests de composables con vitest
-```
+This project was developed **exclusively for local testing and learning purposes**. It does not include production hardening, and requires a Google AI API key to function. It is not recommended to deploy it in internet-facing environments without additional security review.
+
+It was built with the support of generative AI tools:
+- **[Claude Code](https://claude.ai/code)** (Anthropic) — primary development assistant
+- **Gemini 2.5 Flash / Gemini Embedding 2** (Google) — LLM and embeddings for the RAG pipeline
+- **GitHub Copilot / Codex** (OpenAI / GitHub) — code suggestions
 
 ---
 
-## Flujo de Funcionamiento
+## What it can do
 
-### 1. Ingestión de Documentos
-
-1. El usuario sube archivos vía `POST /upload` (validación por magic bytes: PDF, PNG, JPG, TXT, MD — máx. 50 MB)
-2. `POST /ingest` dispara en background:
-   - `SimpleDirectoryReader` carga los documentos de `./data/`
-   - Chunking con `SentenceSplitter` (512 tokens, overlap 64) o semántico si `ENABLE_SEMANTIC_CHUNKING=true`
-   - Embeddings con **Gemini Embedding 2 Preview** (3072 dimensiones)
-   - Almacenamiento en **Qdrant** (búsqueda híbrida dense+sparse BM25 si `ENABLE_HYBRID=true`)
-   - Metadata enriquecida por nodo: `file_type`, `ingested_at`, `file_size`, `page_label`
-   - El índice se persiste en `./storage/` (JSON de LlamaIndex)
-3. `GET /ingest/status` reporta: `idle | running | done | failed`
-
-### 2. Consulta RAG (single-turn)
-
-- `POST /query` con `{ query, top_k, file_type_filter?, use_hyde? }`
-- Recupera `top_k * 3` candidatos vía búsqueda híbrida → reranking con cross-encoder `ms-marco-MiniLM-L-2-v2` → devuelve `top_k` resultados
-- Opcionalmente aplica **HyDE** (genera documento hipotético antes de buscar)
-- Responde `{ query_id, answer, sources[], nodes_retrieved }`
-
-### 3. Chat Multi-turn con Streaming
-
-- `POST /chat/stream` devuelve **SSE (Server-Sent Events)**:
-  - Eventos `token` con cada token generado
-  - Evento final `sources` con los chunks recuperados + `query_id` + `session_id`
-- Memoria de conversación por `session_id` (almacenada en RAM, `ChatMemoryBuffer` 4096 tokens)
-- `POST /chat` como fallback sin streaming
-- `DELETE /chat/{session_id}` limpia la sesión
-
-### 4. Frontend (SPA)
-
-Layout de dos columnas:
-- **Sidebar izquierda:** upload drag&drop → lista de documentos (con eliminar individual) → panel de ingestión (con polling automático cada 3s) → "Zona de peligro" (reset total)
-- **Área principal:** chat con historial, streaming token a token, renderizado Markdown seguro (marked + DOMPurify), feedback thumbs up/down por mensaje, exportación a Markdown, configuración de `top_k` mediante slider
+- **Upload documents:** PDF, images (PNG/JPG), plain text and Markdown, up to 50 MB per file
+- **Ingest:** configurable chunking (fixed or semantic), multimodal embeddings with Gemini, storage in Qdrant with hybrid dense + sparse search (BM25)
+- **Single-turn query:** direct query with cross-encoder reranking and optional HyDE support (Hypothetical Document Embeddings)
+- **Multi-turn chat:** conversation with session memory, token-by-token streaming response via SSE
+- **Multiple collections:** create and manage independent Qdrant collections from the UI
+- **Evaluate the pipeline:** RAGAS-style metrics (faithfulness, relevancy, recall, precision) without depending on the ragas library
+- **Per-message feedback:** thumbs up/down stored in `feedback.jsonl`
+- **Export conversations:** download chat history as Markdown
 
 ---
 
-## Variables de Entorno (`.env`)
+## Technology stack
 
-| Variable | Default | Descripción |
-|---|---|---|
-| `GOOGLE_API_KEY` | **requerida** | API key de Google AI (Gemini) |
-| `QDRANT_HOST` | `qdrant` | Host del servicio Qdrant |
-| `QDRANT_PORT` | `6333` | Puerto Qdrant |
-| `COLLECTION_NAME` | `facultad_rag` | Nombre de la colección en Qdrant |
-| `EMBEDDING_DIM` | `3072` | Dimensión del embedding (Gemini Embedding 2) |
-| `ENABLE_HYBRID` | `true` | Búsqueda híbrida dense+sparse (BM25) |
-| `ENABLE_RERANKER` | `true` | Cross-encoder reranking |
-| `ENABLE_HYDE` | `false` | HyDE query transform |
-| `API_KEY` | `null` | Bearer token para autenticar endpoints (opcional) |
-| `MAX_UPLOAD_MB` | `50` | Tamaño máximo de archivos subidos |
-| `API_PORT` | `8000` | Puerto del backend |
-
-> **Importante:** La dimensión del embedding debe coincidir con la salida del modelo. Para `gemini-embedding-2-preview` el valor es `3072`.
+| Layer | Technology |
+|---|---|
+| **LLM** | Gemini 2.5 Flash (`gemini-2.5-flash`) |
+| **Embeddings** | Gemini Embedding 2 Preview (3072 dimensions) |
+| **Vector DB** | Qdrant 1.13 with hybrid dense+sparse search |
+| **RAG Framework** | LlamaIndex 0.12 |
+| **Backend** | Python 3.11, FastAPI, pydantic-settings |
+| **Frontend** | Vue 3 (Composition API), TypeScript, Vite, PrimeVue 4, Tailwind CSS 4 |
+| **State** | Pinia + localStorage |
+| **Infrastructure** | Docker Compose (3 services), Nginx, multi-stage builds |
 
 ---
 
-## Endpoints de la API
+## Prerequisites
 
-| Método | Ruta | Límite | Descripción |
-|---|---|---|---|
-| `GET` | `/health` | — | Estado de la API e índice |
-| `POST` | `/upload` | 10/min | Subir documento (multipart) |
-| `GET` | `/documents` | — | Listar documentos subidos |
-| `DELETE` | `/documents/{filename}` | — | Eliminar documento + vectores de Qdrant |
-| `POST` | `/ingest` | 5/min | Iniciar ingestión en background |
-| `GET` | `/ingest/status` | — | Estado de la ingestión |
-| `POST` | `/query` | 20/min | Consulta RAG single-turn |
-| `POST` | `/chat` | 20/min | Chat multi-turn sin streaming |
-| `POST` | `/chat/stream` | 20/min | Chat multi-turn con SSE streaming |
-| `DELETE` | `/chat/{session_id}` | — | Limpiar historial de sesión |
-| `GET` | `/collections` | — | Listar colecciones en Qdrant |
-| `DELETE` | `/collection` | — | Reset total de la colección |
-| `POST` | `/feedback` | — | Registrar feedback de calidad (JSONL) |
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- A [Google AI Studio API Key](https://aistudio.google.com/app/apikey) (free with quotas)
 
 ---
 
-## Docker Compose
+## Installation and setup
 
-| Servicio | Puerto | Descripción |
-|---|---|---|
-| `qdrant` | `6333`, `6334` (gRPC) | Vector database, datos en `./qdrant_storage/` |
-| `api` | `8000` | Backend FastAPI |
-| `frontend` | `80` | Nginx sirviendo el build de Vue |
+### 1. Clone the repository
 
 ```bash
-# Desarrollo (hot-reload activado via override)
-docker compose up -d
-docker compose logs -f api
-
-# Producción (sin override)
-docker compose -f docker-compose.yml up -d
-
-# Apagar (los datos persisten en volúmenes montados)
-docker compose down
+git clone <url-del-repo>
+cd rag_multimodal
 ```
 
-Para desarrollo del frontend fuera de Docker:
+### 2. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set your Google API key:
+
+```
+GOOGLE_API_KEY=tu_api_key_aqui
+```
+
+The remaining values can be left at their defaults.
+
+### 3. Start the services
+
+```bash
+docker compose up -d
+```
+
+This starts three containers:
+- **qdrant** — vector database on port `6333`
+- **api** — FastAPI backend on port `8000`
+- **frontend** — Nginx serving the SPA on port `80`
+
+The first run may take several minutes because it downloads the base images and compiles the fastembed model (~500 MB, cached in a Docker volume).
+
+### 4. Open the application
+
+Go to `http://localhost` in your browser.
+
+---
+
+## Basic usage
+
+1. **Upload documents** from the left sidebar (drag & drop or file picker)
+2. **Ingest** using the "Ingestar documentos" button — wait until the status changes to `done`
+3. **Chat** in the main panel — responses arrive token by token with cited sources
+4. For one-off queries without history, use the **Query** tab in the right sidebar
+
+---
+
+## Advanced configuration
+
+The following variables in `.env` control the pipeline behavior:
+
+| Variable | Default | Description |
+|---|---|---|
+| `GOOGLE_API_KEY` | **required** | Google AI (Gemini) API key |
+| `COLLECTION_NAME` | `facultad_rag` | Default Qdrant collection |
+| `EMBEDDING_DIM` | `3072` | Must match the embedding model |
+| `ENABLE_HYBRID` | `true` | Hybrid dense+sparse search (BM25) |
+| `ENABLE_RERANKER` | `true` | Reranking with local cross-encoder |
+| `ENABLE_HYDE` | `false` | HyDE query transform |
+| `ENABLE_SEMANTIC_CHUNKING` | `false` | Semantic chunking (requires re-ingestion) |
+| `API_KEY` | empty | Optional bearer token to protect the API |
+| `MAX_UPLOAD_MB` | `50` | Maximum uploaded file size |
+| `API_PORT` | `8000` | Backend port |
+
+> Changing `ENABLE_HYDE` at runtime via `PUT /config` automatically invalidates cached chat sessions.
+> Changing `ENABLE_SEMANTIC_CHUNKING` requires re-ingesting all documents.
+
+---
+
+## Local development (without Docker)
+
+### Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+# Qdrant must be running (e.g. with Docker: docker run -p 6333:6333 qdrant/qdrant)
+uvicorn main:app --reload --port 8000
+```
+
+### Frontend
+
 ```bash
 cd frontend
 npm install
-npm run dev   # Vite en http://localhost:5173
+npm run dev   # Vite en http://localhost:5173 (con proxy /api → localhost:8000)
 ```
 
----
-
-## Seguridad Implementada
-
-- Validación de tipo de archivo por **magic bytes** (no solo extensión) con `filetype`
-- Protección contra **path traversal** en `DELETE /documents/{filename}`
-- **Rate limiting** por IP con `slowapi`
-- Auth opcional mediante **Bearer token** (si `API_KEY` está definida)
-- Sanitización de Markdown en frontend con **DOMPurify** (previene XSS)
-- CORS restringido a orígenes explícitos
-
----
-
-## Evaluación del Pipeline RAG
-
-`eval_pipeline.py` permite medir la calidad del pipeline con **RAGAS**:
+### Tests
 
 ```bash
-python eval_pipeline.py --questions questions.json --top_k 5 --output eval_results.json
+# Backend
+cd backend && pytest tests/ -v
+
+# Frontend
+cd frontend && npx vitest run
 ```
 
-Métricas reportadas: `faithfulness`, `answer_relevancy`, `context_recall`, `context_precision`.
+---
+
+## Project structure
+
+```
+rag_multimodal/
+├── .env.example                  # Environment variables template
+├── docker-compose.yml            # Production
+├── docker-compose.override.yml   # Development (backend hot-reload)
+│
+├── backend/
+│   ├── main.py                   # FastAPI app — all endpoints
+│   ├── config.py                 # Centralized settings (pydantic-settings)
+│   ├── logger.py                 # Structured JSON logger (loguru)
+│   ├── eval_pipeline.py          # RAG evaluation CLI
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   ├── data/                     # Uploaded documents (Docker volume)
+│   ├── storage/                  # Persisted LlamaIndex index (Docker volume)
+│   └── rag/
+│       ├── ingest.py             # Pipeline: load → chunking → embed → Qdrant
+│       ├── query.py              # RAG Query + Multi-turn Chat + SSE + HyDE
+│       ├── eval.py               # RAGAS-style evaluation (without ragas library)
+│       └── models.py             # Pydantic schemas
+│
+└── frontend/
+    ├── nginx.conf                # SPA fallback + proxy /api/ → backend
+    ├── Dockerfile
+    └── src/
+        ├── api/ragApi.ts         # HTTP client (axios + fetch SSE)
+        ├── composables/useRag.ts # Encapsulated business logic
+        ├── stores/               # Pinia: conversations + collections
+        ├── components/           # AppHeader, QueryPanel, EvalPanel, etc.
+        └── views/                # HomeView, SettingsView, EvalView
+```
+
+---
+
+## Main endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/health` | Service and index status |
+| `POST` | `/upload` | Upload document (multipart, 10/min) |
+| `GET` | `/documents` | List uploaded documents |
+| `DELETE` | `/documents/{filename}` | Delete document and its vectors |
+| `POST` | `/ingest` | Start background ingestion (5/min) |
+| `GET` | `/ingest/status` | Status: `idle \| running \| done \| failed` |
+| `POST` | `/query` | Single-turn RAG query (20/min) |
+| `POST` | `/chat/stream` | Multi-turn chat with SSE streaming (20/min) |
+| `DELETE` | `/chat/{session_id}` | Clear chat session |
+| `GET` | `/collections` | List Qdrant collections |
+| `POST` | `/collections` | Create new collection |
+| `DELETE` | `/collection` | Full reset of the active collection |
+| `PUT` | `/config` | Update configuration at runtime |
+| `POST` | `/eval` | Start RAG evaluation |
+| `POST` | `/feedback` | Record quality feedback |
+
+---
+
+## License
+
+No license defined — personal experimental project. Free to use as a reference.
