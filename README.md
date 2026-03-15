@@ -216,4 +216,4 @@ rag_multimodal/
 
 ## License
 
-No license defined — personal experimental project. Free to use as a reference.
+This project is licensed under the **[MIT License](LICENSE)** — feel free to use, modify, and distribute it with attribution. See the `LICENSE` file for full details.
